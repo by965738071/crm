@@ -14,7 +14,7 @@ pub const user_repo = @import("db/user_repo.zig");
 pub const category_repo = @import("db/category_repo.zig");
 pub const course_repo = @import("db/course_repo.zig");
 pub const resource_repo = @import("db/resource_repo.zig");
-pub const svc_auth = @import("svc/auth.zig");
+pub const svc_identity = @import("svc/identity.zig");
 pub const svc_storage = @import("svc/storage.zig");
 pub const respond = @import("web/respond.zig");
 

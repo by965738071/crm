@@ -9,7 +9,7 @@ const std = @import("std");
 const framework = @import("http_framework");
 const db = @import("../db/db.zig");
 const auth_mw = @import("auth_middleware.zig");
-const svc_auth = @import("../svc/auth.zig");
+const identity = @import("../svc/identity.zig");
 
 pub const State = struct {
     allocator: std.mem.Allocator,
@@ -21,7 +21,7 @@ pub const State = struct {
     /// cookie session（内存存储，重启即失效；生产如需持久化见 plan.md 第 11 节）
     session: framework.SessionManager,
     /// 登录失败计数（防暴力）
-    login_guard: svc_auth.LoginGuard,
+    login_guard: identity.LoginGuard,
 
     /// 鉴权中间件实例：session 指针在 State 构造后回填（自引用不能写进字面量）
     auth_user: auth_mw.AuthRequired = .{},

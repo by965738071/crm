@@ -16,7 +16,7 @@ const std = @import("std");
 const framework = @import("http_framework");
 const state = @import("../../app/state.zig");
 const authm = @import("../../app/auth_middleware.zig");
-const auth = @import("../../svc/auth.zig");
+const identity = @import("../../svc/identity.zig");
 const user_repo = @import("../../db/user_repo.zig");
 const respond = @import("../respond.zig");
 const auth_handlers = @import("auth.zig");
@@ -108,7 +108,7 @@ pub fn putStatus(ctx: *framework.Context, res: *framework.Response) !void {
 
     var target: user_repo.User = undefined;
     if (!try mustGetTarget(ctx, st, id, &target)) return;
-    if (auth.isAdminRole(target.role) and !std.mem.eql(u8, cu.role, "superadmin")) {
+    if (identity.isAdminRole(target.role) and !std.mem.eql(u8, cu.role, "superadmin")) {
         return ctx.failWith(framework.AppError.forbidden("仅超级管理员可操作管理员账号"));
     }
 
@@ -155,17 +155,17 @@ pub fn postResetPassword(ctx: *framework.Context, res: *framework.Response) !voi
 
     const body = auth_handlers.readJson(ResetBody, ctx) catch
         return ctx.failWith(framework.AppError.badRequest("请求体 JSON 无效"));
-    if (body.password.len < auth.password_min_len or body.password.len > auth.password_max_len) {
+    if (body.password.len < identity.password_min_len or body.password.len > identity.password_max_len) {
         return ctx.failWith(framework.AppError.badRequest("密码长度需为 8-128 位"));
     }
 
     var target: user_repo.User = undefined;
     if (!try mustGetTarget(ctx, st, id, &target)) return;
-    if (auth.isAdminRole(target.role) and !std.mem.eql(u8, cu.role, "superadmin")) {
+    if (identity.isAdminRole(target.role) and !std.mem.eql(u8, cu.role, "superadmin")) {
         return ctx.failWith(framework.AppError.forbidden("仅超级管理员可重置管理员密码"));
     }
 
-    const hash = try auth.hashPassword(ctx.arena, ctx.io, body.password);
+    const hash = try identity.hashPassword(ctx.arena, ctx.io, body.password);
     try user_repo.updatePassword(st.db, id, hash, nowSec(ctx));
     try respond.ok(res, .{ .status = "ok" });
 }

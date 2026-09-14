@@ -76,3 +76,77 @@ thread panic: incorrect alignment
 
 应用侧已改为统一在 `run()` 返回后按 `server.deinit → rt.deinit → 业务资源 → st` 顺序收尾，
 不再对已注册中间件实例手动 `deinit`。
+
+---
+
+## Issue 3（功能请求）：`custom_auth` 挂点太弱，导致框架 AuthMiddleware 无法被 session/DB 类鉴权复用
+
+**标题**：Feature: `AuthConfig.custom_auth` 应支持带状态的身份解析器（resolver），而非无捕获的 `fn (*Context) bool`
+
+**环境**：http_framework 1.0.0（main 分支），Zig 0.17.0-dev.2125
+
+### 背景
+
+`http_security.AuthMiddleware` 目前能校验的只有「与启动时配置的那一个常量比对」的共享
+密钥（bearer_token / basic / api_key），它的输出 `AuthInfo` 也只有
+`{strategy, token, username, api_key}`——没有 per-user 身份（user_id）概念，`roles`
+字段声明了但 `authOk` 从不填充。
+
+对于「cookie session → 服务端会话表 → user_id/role」这类最常见的用户登录态场景，应用
+唯一能接进去的扩展点是：
+
+```zig
+custom_auth: ?*const fn (*Context) bool = null,
+```
+
+但这个签名实际不可用：
+
+1. **无状态**：裸函数指针，没有 `self: *anyopaque`，拿不到 SessionManager / DB，只能依赖全局变量；
+2. **只能返回 `bool`**：无法区分 401（未登录）与 403（角色不够），无法携带 error；
+3. **给不出身份**：返回 true 后框架只会 `authOk(.custom)` 存一个空的 `AuthInfo`，解析出的 user_id 无法回传；
+4. **同步签名**：无法在鉴权时 await 查库（zio 协程下需要可挂起的接口）。
+
+结果是：应用无法复用 AuthMiddleware 的 401/挑战/短路机制，只能在 `Middleware.init`
+之上从头写一个鉴权中间件（我们项目里就是这么做的）。这不是 bug——共享密钥定位本身合理，
+但文档也未说明该定位，容易让人误以为框架自带「用户登录」能力。
+
+### 期望
+
+提供一个带状态、可返回身份、可失败的解析器挂点，例如：
+
+```zig
+pub const Identity = struct {
+    user_id: i64,
+    roles: []const []const u8 = &.{},
+    extra: ?*anyopaque = null,
+};
+
+pub const IdentityResolver = struct {
+    self: *anyopaque,
+    /// 返回 null = 未认证（框架发 401）；返回 error = 由框架渲染 500/自定义错误
+    resolve: *const fn (*anyopaque, *Context) !?Identity,
+};
+
+pub const AuthConfig = struct {
+    ...,
+    resolver: ?IdentityResolver = null,
+    /// 非空则要求 Identity.roles 至少命中其一，否则 403
+    required_roles: []const []const u8 = &.{},
+};
+```
+
+命中 `resolver` 成功后，框架把 `Identity` 填进 `AuthInfo`（顺带把 `roles` 字段真正
+用起来）并 `setUserData`，下游 handler 直接取用。401/403 的载荷格式若能配置化
+（如交给应用侧的 ErrorRenderer 定制 JSON）则更佳。
+
+### 收益与边界
+
+- 收益：session-backed / DB-token-backed 鉴权可复用框架的 401/挑战/call-next 机制，应用侧
+  鉴权中间件从「完整实现」缩为「一个 resolver 回调」。
+- 诚实说明：即使补上此钩子，若应用需要定制 401/403 响应体（如中文 JSON），仍可能选择自写
+  中间件。故这是「可复用性」改进，不是「必要性」修复，优先级建议 medium。
+
+### 当前 Workaround
+
+应用在框架 `Middleware.init` + `SessionManager` + `ctx.setUserData` 机制上自写
+`AuthRequired` 中间件，完成 session→身份解析与 admin_only 角色门槛。功能无损失。

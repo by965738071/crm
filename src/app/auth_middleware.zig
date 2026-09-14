@@ -1,7 +1,11 @@
 //! 会话鉴权中间件。挂在路由组上（组级 use），组内路由默认需要登录。
 //!
-//! 与框架 http_security.AuthMiddleware（Bearer/Basic/APIKey）互补：
-//! 那是无状态凭证校验，这里是 cookie session 方案（管理后台/学员端形态）。
+//! 与框架 http_security.AuthMiddleware（Bearer/Basic/APIKey）互补但不可复用：
+//! 那是无状态共享密钥校验——凭证与启动时配置的那一个常量比对，只能回答
+//! “口令对不对”，回答不了“这是哪个用户、什么角色”（AuthInfo 无 user_id，
+//! roles 字段从不填充，custom_auth 钩子无状态且只返回 bool）；
+//! 这里是 cookie session 方案（管理后台/学员端形态），在框架机制
+//! （Middleware + SessionManager + setUserData）上自建身份解析。
 //!
 //! 设计要点：
 //! - 只读现有 cookie（不 getOrCreate，避免匿名流量刷爆 session 表）；
@@ -11,7 +15,7 @@
 
 const std = @import("std");
 const framework = @import("http_framework");
-const auth = @import("../svc/auth.zig");
+const identity = @import("../svc/identity.zig");
 
 pub const AuthRequired = struct {
     /// 指向 State.session。State 构造后才能回填，故可空并在使用处判空。
@@ -32,13 +36,13 @@ pub const AuthRequired = struct {
             return ctx.failWith(framework.AppError.unauthorized("会话数据异常"));
         const role = (try sm.getValue(sid, "role", ctx.arena)) orelse "";
 
-        if (self.admin_only and !auth.isAdminRole(role)) {
+        if (self.admin_only and !identity.isAdminRole(role)) {
             return ctx.failWith(framework.AppError.forbidden("需要管理员权限"));
         }
 
-        const cu = try ctx.arena.create(auth.CurrentUser);
+        const cu = try ctx.arena.create(identity.CurrentUser);
         cu.* = .{ .id = id, .role = role };
-        try ctx.setUserData(auth.CurrentUser, cu);
+        try ctx.setUserData(identity.CurrentUser, cu);
 
         try next.call(ctx, res);
     }
@@ -46,8 +50,8 @@ pub const AuthRequired = struct {
 
 /// handler 侧取当前用户。仅可用于挂了 AuthRequired 的组内路由；
 /// 拿不到说明路由/中间件装配错误，报 internal 而非 unauthorized（前端不应当跳登录页）。
-pub fn currentUser(ctx: *framework.Context) !auth.CurrentUser {
-    const p = ctx.getUserData(auth.CurrentUser) orelse {
+pub fn currentUser(ctx: *framework.Context) !identity.CurrentUser {
+    const p = ctx.getUserData(identity.CurrentUser) orelse {
         try ctx.failWith(framework.AppError.internal("auth middleware not installed on this route"));
         unreachable; // failWith 永远以 error 返回
     };
@@ -56,7 +60,7 @@ pub fn currentUser(ctx: *framework.Context) !auth.CurrentUser {
 
 /// 可选登录态：解析 cookie 会话，未登录/过期返回 null（用于公开路由的
 /// “登录后可见更多”语义，如课时锁定、资料下载）。不抛未登录错误。
-pub fn currentUserOptional(ctx: *framework.Context, sm: *framework.SessionManager) !?auth.CurrentUser {
+pub fn currentUserOptional(ctx: *framework.Context, sm: *framework.SessionManager) !?identity.CurrentUser {
     const sid = ctx.request.getCookie(sm.config.cookie_name) orelse return null;
     const uid_raw = (try sm.getValue(sid, "user_id", ctx.arena)) orelse return null;
     const id = std.fmt.parseInt(i64, uid_raw, 10) catch return null;

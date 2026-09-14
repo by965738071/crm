@@ -6,7 +6,7 @@ const std = @import("std");
 const framework = @import("http_framework");
 const state = @import("../../app/state.zig");
 const authm = @import("../../app/auth_middleware.zig");
-const auth = @import("../../svc/auth.zig");
+const identity = @import("../../svc/identity.zig");
 const user_repo = @import("../../db/user_repo.zig");
 const respond = @import("../respond.zig");
 
@@ -51,7 +51,7 @@ fn isUsername(s: []const u8) bool {
 }
 
 fn passwordOk(s: []const u8) bool {
-    return s.len >= auth.password_min_len and s.len <= auth.password_max_len;
+    return s.len >= identity.password_min_len and s.len <= identity.password_max_len;
 }
 
 /// user → JSON 输出视图（永远不含 password_hash）
@@ -99,7 +99,7 @@ pub fn register(ctx: *framework.Context, res: *framework.Response) !void {
     if (!passwordOk(body.password)) return ctx.failWith(framework.AppError.badRequest("密码长度需为 8-128 位"));
     if (body.nickname.len > 64) return ctx.failWith(framework.AppError.badRequest("昵称最长 64 字符"));
 
-    const hash = try auth.hashPassword(arenaOf(ctx), ctx.io, body.password);
+    const hash = try identity.hashPassword(arenaOf(ctx), ctx.io, body.password);
     const nickname = if (body.nickname.len > 0) body.nickname else body.username;
 
     const id = user_repo.create(st.db, body.email, body.username, nickname, hash, "student", nowSec(ctx)) catch |err| switch (err) {
@@ -137,7 +137,7 @@ pub fn login(ctx: *framework.Context, res: *framework.Response) !void {
         try st.login_guard.recordFailure(now, body.account);
         return ctx.failWith(wrong);
     };
-    if (!auth.verifyPassword(ctx.io, hit.password_hash, body.password)) {
+    if (!identity.verifyPassword(ctx.io, hit.password_hash, body.password)) {
         try st.login_guard.recordFailure(now, body.account);
         return ctx.failWith(wrong);
     }
@@ -219,11 +219,11 @@ pub fn changePassword(ctx: *framework.Context, res: *framework.Response) !void {
 
     const old_hash = (try user_repo.getPasswordHashById(st.db, arenaOf(ctx), cu.id)) orelse
         return ctx.failWith(framework.AppError.unauthorized("登录已失效，请重新登录"));
-    if (!auth.verifyPassword(ctx.io, old_hash, body.old_password)) {
+    if (!identity.verifyPassword(ctx.io, old_hash, body.old_password)) {
         return ctx.failWith(framework.AppError.unauthorized("原密码不正确"));
     }
 
-    const hash = try auth.hashPassword(arenaOf(ctx), ctx.io, body.new_password);
+    const hash = try identity.hashPassword(arenaOf(ctx), ctx.io, body.new_password);
     try user_repo.updatePassword(st.db, cu.id, hash, nowSec(ctx));
 
     // 改密后轮换 session（框架要求：角色/凭证变化后旧会话必须作废）

@@ -7,7 +7,7 @@ const state = @import("state.zig");
 const router = @import("router.zig");
 const db = @import("../db/db.zig");
 const migrate = @import("../db/migrate.zig");
-const svc_auth = @import("../svc/auth.zig");
+const identity = @import("../svc/identity.zig");
 
 /// 应用级路径。framework.Config 只有网络/HTTP/body/pool 分层配置，
 /// 没有应用级字段与加载机制——缺口已在 http-framework-issues.md 中起草提 issue。
@@ -53,7 +53,7 @@ pub fn appMain(io: std.Io, allocator: std.mem.Allocator) !void {
             .session_timeout_sec = 24 * 3600, // 滑动窗口 24h
             .secure = false, // 开发环境明文 HTTP；生产上 TLS 后必须改 true
         }),
-        .login_guard = svc_auth.LoginGuard.init(allocator),
+        .login_guard = identity.LoginGuard.init(allocator),
         .static_index = framework.StaticFileServer.init(allocator, io, static_dir, "/"),
         .static_assets = framework.StaticFileServer.init(allocator, io, static_dir, "/static"),
         .security = .{ .config = .{} },

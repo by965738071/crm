@@ -1,0 +1,6 @@
+debug(zio): Spawning thread 0
+info: migrate: schema -> v1
+warning: seed: created superadmin 'admin' (admin@example.com) with default password — 请尽快登录修改！
+info: seed: inserted 7 default categories
+info: shutdown signal received (SIGTERM)
+debug(zio): Removing thread 0

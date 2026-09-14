@@ -1,0 +1,12 @@
+debug(zio): Spawning thread 0
+debug(zio): Removing thread 0
+error: AddressInUse
+/Users/by/project/zig/crm/zig-pkg/zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-/src/runtime.zig:202:13: 0x10545deb3 in join (crm)
+            return self.result;
+            ^
+/Users/by/project/zig/crm/../wlw/http-framework/src/http_server/zio_server.zig:39:5: 0x1054576cb in run__func_853 (crm)
+    try handle.join();
+    ^
+/Users/by/project/zig/crm/src/main.zig:7:5: 0x1054577a7 in main (crm)
+    try crm.framework.runZio(init.arena.allocator(), crm.appMain);
+    ^

@@ -1,0 +1,1 @@
+{"ok":true,"data":{"items":[{"id":170,"category_id":77,"title":"p5 exam draft","duration_min":20,"total_score":20,"pass_score":10,"rules":[{"type":"single","category_id":77,"count":1,"score_each":10},{"type":"judge","category_id":77,"count":1,"score_each":10}],"status":"draft","created_at":1789465406,"question_count":2}],"total":1,"page":1,"size":20}}

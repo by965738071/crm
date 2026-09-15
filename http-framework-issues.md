@@ -150,3 +150,36 @@ pub const AuthConfig = struct {
 
 应用在框架 `Middleware.init` + `SessionManager` + `ctx.setUserData` 机制上自写
 `AuthRequired` 中间件，完成 session→身份解析与 admin_only 角色门槛。功能无损失。
+
+---
+
+## Issue 4（设计不一致）：AppError 渲染为纯文本，与 JSON 响应包不统一且无可配置钩子
+
+**标题**：`ErrorRenderer` 把 AppError 渲染成 `text/plain`，success/notFound 却是 JSON；应用无法自定义错误体格式
+
+**环境**：http_framework 1.0.0（main 分支），Zig 0.17.0-dev
+
+### 现象
+
+`AppError.toResponse` 写死 `res.text(self.message)`（error.zig:54-57），因此所有
+`ctx.failWith(AppError.x(msg))` 的响应体是**纯文本消息**；而成功响应（应用侧 `respond.ok`）
+与框架 `StaticFileServer` 404 等路径普遍是 JSON。同一个 API 前缀下出现两种响应格式：
+
+```
+GET /api/practice/wrong        → {"ok":true,"data":{...}}          (Content-Type: application/json)
+GET /api/practice/wrong (未登录) → 请先登录                          (Content-Type: text/plain)
+```
+
+前端统一拦截器（axios 之类）通常假定 `{ok, error:{code,message}}` 包络解析错误，纯文本
+错误体会迫使应用为每个请求做 Content-Type 分支判断。
+
+### 期望（任选其一）
+
+- `ErrorRenderer` 提供渲染钩子：`render: ?*const fn (*Context, *Response, AppError) anyerror!void = null`，默认实现渲染 JSON 包络（至少含 `status` 数字码与 `message`）。
+- 或直接把默认渲染改为 JSON：`{"ok":false,"error":{"code":"bad_request","message":"..."}}`（code 由 AppError.kind 推导），与 `Response.json` 的成功包络对称。
+
+### 当前 Workaround
+
+应用接受 text/plain 错误体，冒烟脚本对错误文案用 `grep` 断言（而非 JSON 解析）。能用，
+但前端阶段（第 8 期）要么写双格式解析器，要么回来定制渲染——不如框架提前留钩子。
+优先级建议 medium（不阻断功能，影响前端统一性）。

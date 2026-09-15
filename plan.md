@@ -298,6 +298,7 @@ announcements(id PK, title, content TEXT, status TEXT DEFAULT 'draft',
 | GET | /favorites | 我的收藏 |
 | POST/PUT/DELETE | /notes | 笔记 CRUD |
 | POST | /questions/:id/favorite | 题目收藏切换 |
+| GET | /practice/favorites | 题目收藏列表（分页，含答案与解析，复盘用） |
 | GET | /resources/:id/download | 鉴权下载（流式） |
 
 ### 管理后台（/api/admin/*，role ≥ admin）
@@ -403,14 +404,30 @@ web/
 
 
 ### 第 3 期：学习（M-C）
-- [ ] T3.1 报名（免费直通/付费建订单）
-- [ ] T3.2 进度上报/查询、心跳时长
-- [ ] T3.3 我的课程、继续学习数据
+- [x] T3.1 报名（免费直通/付费建订单）
+- [x] T3.2 进度上报/查询、心跳时长
+- [x] T3.3 我的课程、继续学习数据
+
+**第 3 期完成备注（2026-09-15 验证记录，Windows）**：
+
+- `zig build test` 11/11 全绿（learning_repo 报名/解锁/upsert/聚合/utcDate 单测）；`scripts/smoke_phase3.sh` **PASS=66 FAIL=0**，覆盖：报名 404（不存在/草稿）、付费 pending_payment+order_no、幂等 already_enrolled、未支付不解锁 403、免费课直通、试看课时未报名可学、进度 upsert 同行、position 负值钳 0、status 白名单 400、坏 JSON/缺参 400、心跳 seconds 1-600 边界 400、UTC 日期、我的课程聚合（completed/last_lesson/last_position/排序）、me/progress、游客 401。
+- 设计：`order_no = O{now}-{enroll_id}`（确定性，UNIQUE 兜底）；报名+建订单包 `BEGIN IMMEDIATE` 事务；解锁规则 = `pay_status IN ('paid','free')`，支付标记留给第 6 期；`learning_progress` UPSERT 靠 `UNIQUE(user_id,lesson_id)`；`study_logs` 按 UTC 日期聚合（为第 7 期统计预留）。
+- 踩坑 1（**Zig 0.17.0-dev std.fmt 怪癖**，非框架问题）：有符号整数带宽度格式会给正数加 '+'（`{d:0>4}` 对 i64 1970 → "+1970"，见 `Io/Writer.zig printIntAny`）→ `utcDate` 转 u64 后零填充；`storage.monthDir` 因 `epoch.Year=u16` 不受影响。
+- 踩坑 2（Windows 环境）：git-bash 下 curl argv 里的中文被系统码页破坏 → 服务端收到非法 UTF-8 → JSON 400。第 3 期脚本请求体全 ASCII；后续脚本在 Windows 上验证时遵循同一约定。
+- 踩坑 3（Windows 环境）：无 POSIX 信号，`kill` = TerminateProcess（rc=143），无法验证 SIGTERM 优雅关停 → 脚本按平台分支断言；Linux/macOS 上仍验 exit 0 + 泄漏检查。
 
 ### 第 4 期：题库与练习（M-D）
-- [ ] T4.1 题目 CRUD + 批量导入
-- [ ] T4.2 章节/随机练习、判分、答题记录
-- [ ] T4.3 错题本 + 掌握标记 + 题目收藏
+- [x] T4.1 题目 CRUD + 批量导入
+- [x] T4.2 章节/随机练习、判分、答题记录
+- [x] T4.3 错题本 + 掌握标记 + 题目收藏
+
+**第 4 期完成备注（2026-09-15 验证记录，Windows）**：
+
+- `zig build test` 18/18 全绿（新增 question_repo CRUD/校验/抽题/CSV 解析与 practice_repo 错题/收藏集成测试）；`scripts/smoke_phase4.sh` **PASS=98 FAIL=0**（连跑两遍幂等），覆盖：建题四类校验失败（题型/分类/多选单字母/答案越界）、judge 选项忽略与 TRUE→T 规范化、更新答案、列表过滤（分类/keyword/type）、JSON 导入（全有成败：坏批含「第N行」文案且总数不变）、CSV 导入（引号字段含逗号/列数不正 400）、questions+csv 二选一 400、游客 401、坏 mode/空池 400、count 钳制、抽题视图不含答案/解析（python 断言）、used_count 递增、判分全分支（判分宽松：乱序重复小写；judge 接受 true；空答/无字母/坏 source/坏 duration → 400）、错题本 count 累加 + 答对自动 mastered、wrong_count 保留、mastered=0/1/-1 列表、手动掌握（幂等）+404、收藏切换/列表/404、软删联动（get/submit/收藏 404，错题列表隐藏）。
+- 设计：答案入库即规范化（judge "T"/"F"、单选 1 字母、多选升序去重 "ABD"），options 以 JSON 字符串数组存列；练习**无状态**（start 抽题 + submit 逐题即时判分，不落会话），`practice_records.session_id=0` 预留给第 5 期考试（= exam_attempts.id）；错题本 UPSERT 在 `BEGIN IMMEDIATE` 事务内与答题记录同写，答对只置 mastered=1 不清零 wrong_count（复盘价值）；抽题/错题/收藏查询一律 `JOIN questions ... deleted=0`，软删题自动隐身。导入语义「先全量校验、全对才入库」，避免部分导入后前端难对账。
+- 新增路由（§7 未列，属功能闭环必要补充）：`GET /api/practice/favorites`（D5 题收藏需读端点；§7 的 `GET /favorites` 是第 7 期 G2 课程/资料通用收藏，路径不冲突）。
+- 踩坑 4（**Zig 0.17.0-dev 语言变更**，非框架问题）：`**` 数组重复运算符已移除 → `@splat(false)` 配合目标类型推导长度；`catch |e| {} else |v| {}` 已移除 → 用 `if (expr) |v| {} else |e| {}`；`std.ArrayList(T).init(alloc)` 移除 → `.empty` + `append(a, ..)`；switch 的 prong **不再收窄** catch 捕获的错误集 → `validationMsg` 改收 `anyerror` + else 兜底；`std.ascii.upperString` 不再返回 error union，且定长栈缓冲遇超长输入 debug assert → 改 `std.ascii.eqlIgnoreCase` 逐字比较（同时堆除了一类潜在 panic：学员对判断题送超长字符串可炸进程）。
+- 踩坑 5（冒烟脚本）：AppError 错误体是**纯文本**（框架 ErrorRenderer `res.text`，见 issues 草稿 Issue 4）→ 断言错误文案用 `grep` 而非 json.load；bash 单引号串里的 `\"` 不会被剥除（是字面量），JSON 结构引号用裸 `"`、仅字段值内引号用 `\"`。
 
 ### 第 5 期：模拟考试（M-E）
 - [ ] T5.1 试卷管理 + 抽题规则

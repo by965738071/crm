@@ -1,0 +1,61 @@
+GET /api/health 200 {"ok":true,"data":{"status":"ok","uptime_seconds":0,"db":"sqlite","schema_version":1}}
+POST /api/auth/login 200 {"ok":true,"data":{"id":1,"email":"admin@example.com","username":"admin","nickname":"超级管理员","avatar":"","role"
+POST /api/admin/categories 200 {"ok":true,"data":{"id":47,"parent_id":1,"name":"p5catq1789464553","sort":0,"children":[]}}
+POST /api/admin/questions 400 请求体 JSON 无效
+POST /api/admin/questions 400 请求体 JSON 无效
+POST /api/admin/exams 400 请求体 JSON 无效
+POST /api/admin/exams 400 请求体 JSON 无效
+POST /api/admin/exams 400 请求体 JSON 无效
+POST /api/admin/exams 400 请求体 JSON 无效
+POST /api/admin/exams 400 请求体 JSON 无效
+POST /api/admin/exams 400 请求体 JSON 无效
+POST /api/admin/exams 400 请求体 JSON 无效
+POST /api/admin/exams 400 请求体 JSON 无效
+POST /api/admin/exams 400 请求体 JSON 无效
+POST /api/admin/exams 400 请求体 JSON 无效
+GET /api/admin/exams?category_id= 200 {"ok":true,"data":{"items":[{"id":81,"category_id":46,"title":"p5 exam short","duration_min":30,"total_score":50,"pass_s
+GET /api/admin/exams?status=draft&category_id= 200 {"ok":true,"data":{"items":[{"id":80,"category_id":46,"title":"p5 exam draft","duration_min":20,"total_score":20,"pass_s
+GET /api/admin/exams?keyword=exam%20one 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+GET /api/admin/exams/ 200 {"ok":true,"data":{"items":[{"id":81,"category_id":46,"title":"p5 exam short","duration_min":30,"total_score":50,"pass_s
+GET /api/admin/exams/999999 404 试卷不存在
+GET /api/exams 401 请先登录
+POST /api/exams//start 404 {"ok":false,"error":{"code":"not_found","message":"no such route"}}
+POST /api/exam-attempts/1/submit 401 请先登录
+POST /api/auth/register 200 {"ok":true,"data":{"id":62,"email":"p5stu1789464553@ex.com","username":"p5stu1789464553","nickname":"p5stu1789464553","a
+POST /api/auth/login 200 {"ok":true,"data":{"id":62,"email":"p5stu1789464553@ex.com","username":"p5stu1789464553","nickname":"p5stu1789464553","a
+GET /api/exams?category_id= 200 {"ok":true,"data":{"items":[{"exam":{"id":81,"category_id":46,"title":"p5 exam short","duration_min":30,"total_score":50
+POST /api/exams//start 404 {"ok":false,"error":{"code":"not_found","message":"no such route"}}
+POST /api/exams/999999/start 404 试卷不存在
+POST /api/exams//start 404 {"ok":false,"error":{"code":"not_found","message":"no such route"}}
+POST /api/exams//start 404 {"ok":false,"error":{"code":"not_found","message":"no such route"}}
+POST /api/exam-attempts//answer 405 Method Not Allowed
+POST /api/exams//start 404 {"ok":false,"error":{"code":"not_found","message":"no such route"}}
+POST /api/exam-attempts/999999/answer 404 考试记录不存在
+POST /api/exam-attempts//submit 405 Method Not Allowed
+POST /api/exam-attempts//submit 405 Method Not Allowed
+POST /api/exam-attempts//answer 405 Method Not Allowed
+POST /api/exams//start 404 {"ok":false,"error":{"code":"not_found","message":"no such route"}}
+POST /api/exam-attempts//submit 405 Method Not Allowed
+POST /api/exams//start 404 {"ok":false,"error":{"code":"not_found","message":"no such route"}}
+GET /api/exam-attempts/ 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+POST /api/exam-attempts//submit 405 Method Not Allowed
+GET /api/exam-attempts/ 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+GET /api/exam-attempts/ 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+GET /api/exam-attempts/999999 404 考试记录不存在
+GET /api/practice/wrong?mastered=0 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+GET /api/exam-attempts?exam_id= 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+GET /api/exam-attempts?exam_id=999999 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+GET /api/exams?category_id= 200 {"ok":true,"data":{"items":[{"exam":{"id":81,"category_id":46,"title":"p5 exam short","duration_min":30,"total_score":50
+POST /api/auth/register 200 {"ok":true,"data":{"id":63,"email":"p5stuB1789464553@ex.com","username":"p5stuB1789464553","nickname":"p5stuB1789464553"
+POST /api/auth/login 200 {"ok":true,"data":{"id":63,"email":"p5stuB1789464553@ex.com","username":"p5stuB1789464553","nickname":"p5stuB1789464553"
+GET /api/exam-attempts/ 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+POST /api/exam-attempts//submit 405 Method Not Allowed
+POST /api/exam-attempts//answer 405 Method Not Allowed
+PUT /api/admin/exams/ 405 Method Not Allowed
+PUT /api/admin/exams/ 405 Method Not Allowed
+PUT /api/admin/exams/999999 404 试卷不存在
+DELETE /api/admin/exams/ 405 Method Not Allowed
+POST /api/exams//start 404 {"ok":false,"error":{"code":"not_found","message":"no such route"}}
+GET /api/exam-attempts/ 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+GET /api/admin/exams?category_id= 200 {"ok":true,"data":{"items":[{"id":81,"category_id":46,"title":"p5 exam short","duration_min":30,"total_score":50,"pass_s
+DELETE /api/admin/exams/ 405 Method Not Allowed

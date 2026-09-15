@@ -9,6 +9,10 @@ const admin_users = @import("../web/handlers/admin_users.zig");
 const categories = @import("../web/handlers/categories.zig");
 const courses = @import("../web/handlers/courses.zig");
 const resources = @import("../web/handlers/resources.zig");
+const learning = @import("../web/handlers/learning.zig");
+const questions = @import("../web/handlers/questions.zig");
+const practice = @import("../web/handlers/practice.zig");
+const exams = @import("../web/handlers/exams.zig");
 const auth_mw = @import("auth_middleware.zig");
 const respond = @import("../web/respond.zig");
 
@@ -34,6 +38,32 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
     try authed.route(.GET, "/me", framework.Handler.fromFn(auth_h.me));
     try authed.route(.PUT, "/profile", framework.Handler.fromFn(auth_h.updateProfile));
     try authed.route(.PUT, "/password", framework.Handler.fromFn(auth_h.changePassword));
+
+    // 学员登录态接口（第 3 期 M-C）：空前缀子组，只给本组路由挂 AuthRequired
+    // （框架组中间件沿祖先链解析，见 http_router/router.zig 注释）
+    var study = try api.group("");
+    try study.use(framework.Middleware.init(auth_mw.AuthRequired, &st.auth_user));
+    try study.route(.POST, "/courses/:id/enroll", framework.Handler.fromFn(learning.enroll));
+    try study.route(.GET, "/me/enrollments", framework.Handler.fromFn(learning.myEnrollments));
+    try study.route(.GET, "/me/progress", framework.Handler.fromFn(learning.myProgress));
+    try study.route(.POST, "/learning/progress", framework.Handler.fromFn(learning.reportProgress));
+    try study.route(.POST, "/learning/heartbeat", framework.Handler.fromFn(learning.heartbeat));
+
+    // 题库与练习（第 4 期 M-D）
+    try study.route(.POST, "/practice/start", framework.Handler.fromFn(practice.start));
+    try study.route(.POST, "/practice/submit", framework.Handler.fromFn(practice.submit));
+    try study.route(.GET, "/practice/wrong", framework.Handler.fromFn(practice.wrongList));
+    try study.route(.POST, "/practice/wrong/:id/master", framework.Handler.fromFn(practice.masterWrong));
+    try study.route(.GET, "/practice/favorites", framework.Handler.fromFn(practice.favorites));
+    try study.route(.POST, "/questions/:id/favorite", framework.Handler.fromFn(practice.toggleFavorite));
+
+    // 模拟考试（第 5 期 M-E）
+    try study.route(.GET, "/exams", framework.Handler.fromFn(exams.list));
+    try study.route(.POST, "/exams/:id/start", framework.Handler.fromFn(exams.start));
+    try study.route(.POST, "/exam-attempts/:id/answer", framework.Handler.fromFn(exams.saveAnswer));
+    try study.route(.POST, "/exam-attempts/:id/submit", framework.Handler.fromFn(exams.submit));
+    try study.route(.GET, "/exam-attempts", framework.Handler.fromFn(exams.attemptList));
+    try study.route(.GET, "/exam-attempts/:id", framework.Handler.fromFn(exams.attemptDetail));
 
     // 管理端：AuthRequired{admin_only}（admin/superadmin）
     var admin = try api.group("/admin");
@@ -74,6 +104,21 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
     try admin.route(.POST, "/resources", framework.Handler.fromFn(resources.metaCreate));
     try admin.route(.PUT, "/resources/:id", framework.Handler.fromFn(resources.metaUpdate));
     try admin.route(.DELETE, "/resources/:id", framework.Handler.fromFn(resources.metaDelete));
+
+    // ---------------- 题库管理（第 4 期 M-D） ----------------
+    try admin.route(.GET, "/questions", framework.Handler.fromFn(questions.adminList));
+    try admin.route(.POST, "/questions", framework.Handler.fromFn(questions.adminCreate));
+    try admin.route(.POST, "/questions/import", framework.Handler.fromFn(questions.adminImport));
+    try admin.route(.GET, "/questions/:id", framework.Handler.fromFn(questions.adminGet));
+    try admin.route(.PUT, "/questions/:id", framework.Handler.fromFn(questions.adminUpdate));
+    try admin.route(.DELETE, "/questions/:id", framework.Handler.fromFn(questions.adminDelete));
+
+    // 模拟考试管理（第 5 期 M-E）
+    try admin.route(.GET, "/exams", framework.Handler.fromFn(exams.adminList));
+    try admin.route(.POST, "/exams", framework.Handler.fromFn(exams.adminCreate));
+    try admin.route(.GET, "/exams/:id", framework.Handler.fromFn(exams.adminGet));
+    try admin.route(.PUT, "/exams/:id", framework.Handler.fromFn(exams.adminUpdate));
+    try admin.route(.DELETE, "/exams/:id", framework.Handler.fromFn(exams.adminDelete));
 
     router.notFoundHandler(framework.Handler.fromFn(respond.notFoundHandler));
 }

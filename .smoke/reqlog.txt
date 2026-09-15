@@ -1,0 +1,61 @@
+GET /api/health 200 {"ok":true,"data":{"status":"ok","uptime_seconds":0,"db":"sqlite","schema_version":1}}
+POST /api/auth/login 200 {"ok":true,"data":{"id":1,"email":"admin@example.com","username":"admin","nickname":"超级管理员","avatar":"","role"
+POST /api/admin/categories 200 {"ok":true,"data":{"id":77,"parent_id":1,"name":"p5catq1789465401","sort":0,"children":[]}}
+POST /api/admin/questions 200 {"ok":true,"data":{"id":137,"category_id":77,"course_id":0,"type":"single","stem":"p5 q single","options":["opA","opB","
+POST /api/admin/questions 200 {"ok":true,"data":{"id":138,"category_id":77,"course_id":0,"type":"judge","stem":"p5 q judge","options":[],"answer":"T",
+POST /api/admin/exams 400 各规则分值合计与总分不一致
+POST /api/admin/exams 400 status 仅支持 draft/published
+POST /api/admin/exams 400 抽题规则需 1-20 条
+POST /api/admin/exams 400 抽题规则引用的分类 999999 不存在
+POST /api/admin/exams 400 抽题规则字段非法（分类需存在、count 1-100、score_each 1-100、type 为空或 single/multi/judge）
+POST /api/admin/exams 400 分类不存在
+POST /api/admin/exams 400 试卷标题不能为空且最长 128 字符
+POST /api/admin/exams 200 {"ok":true,"data":{"id":169,"category_id":77,"title":"p5 exam one","duration_min":30,"total_score":20,"pass_score":10,"r
+POST /api/admin/exams 200 {"ok":true,"data":{"id":170,"category_id":77,"title":"p5 exam draft","duration_min":20,"total_score":20,"pass_score":10,
+POST /api/admin/exams 200 {"ok":true,"data":{"id":171,"category_id":77,"title":"p5 exam short","duration_min":30,"total_score":50,"pass_score":25,
+GET /api/admin/exams?category_id=77 200 {"ok":true,"data":{"items":[{"id":171,"category_id":77,"title":"p5 exam short","duration_min":30,"total_score":50,"pass_
+GET /api/admin/exams?status=draft&category_id=77 200 {"ok":true,"data":{"items":[{"id":170,"category_id":77,"title":"p5 exam draft","duration_min":20,"total_score":20,"pass_
+GET /api/admin/exams?keyword=exam%20one 200 {"ok":true,"data":{"items":[{"id":169,"category_id":77,"title":"p5 exam one","duration_min":30,"total_score":20,"pass_sc
+GET /api/admin/exams/169 200 {"ok":true,"data":{"id":169,"category_id":77,"title":"p5 exam one","duration_min":30,"total_score":20,"pass_score":10,"r
+GET /api/admin/exams/999999 404 试卷不存在
+GET /api/exams 401 请先登录
+POST /api/exams/169/start 401 请先登录
+POST /api/exam-attempts/1/submit 401 请先登录
+POST /api/auth/register 200 {"ok":true,"data":{"id":122,"email":"p5stu1789465401@ex.com","username":"p5stu1789465401","nickname":"p5stu1789465401","
+POST /api/auth/login 200 {"ok":true,"data":{"id":122,"email":"p5stu1789465401@ex.com","username":"p5stu1789465401","nickname":"p5stu1789465401","
+GET /api/exams?category_id=77 200 {"ok":true,"data":{"items":[{"exam":{"id":171,"category_id":77,"title":"p5 exam short","duration_min":30,"total_score":5
+POST /api/exams/170/start 404 试卷不存在
+POST /api/exams/999999/start 404 试卷不存在
+POST /api/exams/171/start 400 题池不足：分类 77 题型 single 需 5 题，仅有 1
+POST /api/exams/169/start 200 {"ok":true,"data":{"resumed":false,"attempt_id":162,"exam":{"id":169,"title":"p5 exam one","duration_min":30,"total_scor
+POST /api/exam-attempts/162/answer 200 {"ok":true,"data":{"status":"ok","saved":2}}
+POST /api/exams/169/start 200 {"ok":true,"data":{"resumed":true,"attempt_id":162,"exam":{"id":169,"title":"p5 exam one","duration_min":30,"total_score
+POST /api/exam-attempts/999999/answer 404 考试记录不存在
+POST /api/exam-attempts/162/submit 200 {"ok":true,"data":{"score":20,"total_score":20,"pass_score":10,"passed":true,"correct_count":2,"total_count":2,"submitte
+POST /api/exam-attempts/162/submit 400 已交卷
+POST /api/exam-attempts/162/answer 400 已交卷，不可再修改作答
+POST /api/exams/169/start 200 {"ok":true,"data":{"resumed":false,"attempt_id":163,"exam":{"id":169,"title":"p5 exam one","duration_min":30,"total_scor
+POST /api/exam-attempts/163/submit 200 {"ok":true,"data":{"score":0,"total_score":20,"pass_score":10,"passed":false,"correct_count":0,"total_count":2,"submitte
+POST /api/exams/169/start 200 {"ok":true,"data":{"resumed":false,"attempt_id":164,"exam":{"id":169,"title":"p5 exam one","duration_min":30,"total_scor
+GET /api/exam-attempts/164 400 尚未交卷，无法回顾
+POST /api/exam-attempts/164/submit 200 {"ok":true,"data":{"score":0,"total_score":20,"pass_score":10,"passed":false,"correct_count":0,"total_count":2,"submitte
+GET /api/exam-attempts/162 200 {"ok":true,"data":{"attempt_id":162,"exam_id":169,"exam_title":"p5 exam one","score":20,"total_score":20,"pass_score":10
+GET /api/exam-attempts/163 200 {"ok":true,"data":{"attempt_id":163,"exam_id":169,"exam_title":"p5 exam one","score":0,"total_score":20,"pass_score":10,
+GET /api/exam-attempts/999999 404 考试记录不存在
+GET /api/practice/wrong?mastered=0 200 {"ok":true,"data":{"items":[{"id":66,"wrong_count":1,"mastered":0,"last_wrong_at":1789465415,"question":{"id":137,"categ
+GET /api/exam-attempts?exam_id=169 200 {"ok":true,"data":{"items":[{"id":164,"exam_id":169,"exam_title":"p5 exam one","score":0,"passed":0,"question_count":2,"
+GET /api/exam-attempts?exam_id=999999 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+GET /api/exams?category_id=77 200 {"ok":true,"data":{"items":[{"exam":{"id":171,"category_id":77,"title":"p5 exam short","duration_min":30,"total_score":5
+POST /api/auth/register 200 {"ok":true,"data":{"id":123,"email":"p5stuB1789465401@ex.com","username":"p5stuB1789465401","nickname":"p5stuB1789465401
+POST /api/auth/login 200 {"ok":true,"data":{"id":123,"email":"p5stuB1789465401@ex.com","username":"p5stuB1789465401","nickname":"p5stuB1789465401
+GET /api/exam-attempts/162 404 考试记录不存在
+POST /api/exam-attempts/162/submit 404 考试记录不存在
+POST /api/exam-attempts/162/answer 404 考试记录不存在
+PUT /api/admin/exams/169 400 各规则分值合计与总分不一致
+PUT /api/admin/exams/169 200 {"ok":true,"data":{"id":169,"category_id":77,"title":"p5 exam one v2","duration_min":45,"total_score":20,"pass_score":10
+PUT /api/admin/exams/999999 404 试卷不存在
+DELETE /api/admin/exams/169 200 {"ok":true,"data":{"status":"ok"}}
+POST /api/exams/169/start 404 试卷不存在
+GET /api/exam-attempts/162 200 {"ok":true,"data":{"attempt_id":162,"exam_id":169,"exam_title":"p5 exam one v2","score":20,"total_score":20,"pass_score"
+GET /api/admin/exams?category_id=77 200 {"ok":true,"data":{"items":[{"id":171,"category_id":77,"title":"p5 exam short","duration_min":30,"total_score":50,"pass_
+DELETE /api/admin/exams/169 404 试卷不存在

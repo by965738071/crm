@@ -1,0 +1,1 @@
+{"ok":true,"data":{"id":169,"category_id":77,"title":"p5 exam one","duration_min":30,"total_score":20,"pass_score":10,"rules":[{"type":"single","category_id":77,"count":1,"score_each":10},{"type":"judge","category_id":77,"count":1,"score_each":10}],"status":"published","created_at":1789465405,"question_count":2}}

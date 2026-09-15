@@ -1,0 +1,150 @@
+ok   health 200 (200)
+ok   admin login 200 (200)
+ok   category CATQ 200 (200)
+ok   create single QA 200 (200)
+ok   create judge QC 200 (200)
+ok   bad score sum 400 (400)
+ok   bad status 400 (400)
+ok   empty rules 400 (400)
+ok   rule bad category 400 (400)
+ok   rule cat msg (ok)
+ok   rule count 0 400 (400)
+ok   main bad category 400 (400)
+ok   empty title 400 (400)
+ok   create EX1 200 (200)
+ok   EX1 question_count 2 (2)
+ok   EX1 status (published)
+ok   create EX2 draft 200 (200)
+ok   create EX3 200 (200)
+ok   admin list 200 (200)
+ok   admin list total 3 (3)
+ok   admin draft filter total 1 (1)
+ok   admin draft item EX2 (32)
+ok   admin keyword hit (1)
+ok   admin get EX1 200 (200)
+FAIL EX1 duration 30 expected=30 got= body={"ok":true,"data":{"items":[{"id":31,"category_id":30,"title":"p5 exam one","duration_min":30,"total_score":20,"pass_score":10,"rules":[{"type":"single","category_id":30,"count":1,"score_each":10},{"type":"judge","category_id":30,"count":1,"score_each":10}],"status":"published","created_at":17894627
+ok   admin get missing 404 (404)
+ok   guest list 401 (401)
+ok   guest start 401 (401)
+ok   guest submit 401 (401)
+ok   student register 200 (200)
+ok   student login 200 (200)
+ok   student list 200 (200)
+ok   student list total 2 (no draft) (2)
+ok   draft excluded, published present (ok)
+ok   start draft 404 (404)
+ok   start missing 404 (404)
+ok   start pool shortage 400 (400)
+ok   pool msg (ok)
+ok   start EX1 200 (200)
+FAIL start resumed false expected=False got= body=题池不足：分类 30 题型 single 需 5 题，仅有 1
+FAIL start 2 questions expected=2 got= body=题池不足：分类 30 题型 single 需 5 题，仅有 1
+FAIL start no saved answers expected=0 got= body=题池不足：分类 30 题型 single 需 5 题，仅有 1
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json;d=json.load(open('.smoke/last.json'))['data'];print(d['deadline_at']-d['started_at'])
+                  ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Applications\Scoop\apps\python\current\Lib\json\__init__.py", line 293, in load
+    return loads(fp.read(),
+                 ~~~~~~~^^
+UnicodeDecodeError: 'gbk' codec can't decode byte 0xbb in position 20: illegal multibyte sequence
+FAIL deadline -30min expected=1800 got= body=题池不足：分类 30 题型 single 需 5 题，仅有 1
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json;d=json.load(open('.smoke/last.json'))['data'];print(1 if d['remaining_sec']>1790 else 0)
+                  ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Applications\Scoop\apps\python\current\Lib\json\__init__.py", line 293, in load
+    return loads(fp.read(),
+                 ~~~~~~~^^
+UnicodeDecodeError: 'gbk' codec can't decode byte 0xbb in position 20: illegal multibyte sequence
+FAIL remaining >1790 expected=1 got= body=题池不足：分类 30 题型 single 需 5 题，仅有 1
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys;d=json.load(open(sys.argv[1]))['data'];sys.exit(0 if all('answer' not in q and 'explanation' not in q for q in d['questions']) else 1)
+                      ~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "D:\Applications\Scoop\apps\python\current\Lib\json\__init__.py", line 293, in load
+    return loads(fp.read(),
+                 ~~~~~~~^^
+UnicodeDecodeError: 'gbk' codec can't decode byte 0xbb in position 20: illegal multibyte sequence
+FAIL snapshot hides answers expected=ok got=leak body=题池不足：分类 30 题型 single 需 5 题，仅有 1
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json;a=json.load(open('.smoke/last.json'))['data'];ans=[{'question_id':q['id'],'answer':{'single':'B','judge':'T'}[q['type']]} for q in a['questions']];print(json.dumps({'answers':ans}))
+                  ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Applications\Scoop\apps\python\current\Lib\json\__init__.py", line 293, in load
+    return loads(fp.read(),
+                 ~~~~~~~^^
+UnicodeDecodeError: 'gbk' codec can't decode byte 0xbb in position 20: illegal multibyte sequence
+FAIL autosave 200 expected=200 got=405 body=Method Not Allowed
+FAIL autosave saved 2 expected=2 got= body=Method Not Allowed
+ok   resume 200 (200)
+FAIL resume same attempt expected= got=27 body={"ok":true,"data":{"resumed":true,"attempt_id":27,"exam":{"id":31,"title":"p5 exam one","duration_min":30,"total_score":20,"pass_score":10},"started_at":1789462771,"deadline_at":1789464571,"remaining_sec":1798,"questions":[{"id":45,"type":"single","stem":"p5 q single","options":["opA","opB","opC"],"
+ok   resume flag true (True)
+FAIL resume has answers expected=2 got=0 body={"ok":true,"data":{"resumed":true,"attempt_id":27,"exam":{"id":31,"title":"p5 exam one","duration_min":30,"total_score":20,"pass_score":10},"started_at":1789462771,"deadline_at":1789464571,"remaining_sec":1798,"questions":[{"id":45,"type":"single","stem":"p5 q single","options":["opA","opB","opC"],"
+ok   autosave missing 404 (404)
+FAIL submit A 200 expected=200 got=405 body=Method Not Allowed
+FAIL score A 20 expected=20 got= body=Method Not Allowed
+FAIL total A 20 expected=20 got= body=Method Not Allowed
+FAIL passed A expected=True got= body=Method Not Allowed
+FAIL correct A 2/2 expected=2 got= body=Method Not Allowed
+FAIL double submit 400 expected=400 got=405 body=Method Not Allowed
+FAIL autosave after submit 400 expected=400 got=405 body=Method Not Allowed
+ok   start attempt B 200 (200)
+ok   new attempt id differs (ok)
+ok   submit B 200 (200)
+ok   score B 0 (0)
+ok   passed B false (False)
+ok   start attempt C 200 (200)
+FAIL review unsubmitted 400 expected=400 got=200 body={"ok":true,"data":{"items":[{"id":28,"exam_id":31,"exam_title":"p5 exam one","score":-1,"passed":0,"question_count":2,"started_at":1789462775,"deadline_at":1789464575,"submitted_at":0},{"id":27,"exam_id":31,"exam_title":"p5 exam one","score":0,"passed":0,"question_count":2,"started_at":1789462771,"d
+FAIL unsubmitted msg expected=ok got=no body={"ok":true,"data":{"items":[{"id":28,"exam_id":31,"exam_title":"p5 exam one","score":-1,"passed":0,"question_count":2,"started_at":1789462775,"deadline_at":1789464575,"submitted_at":0},{"id":27,"exam_id":31,"exam_title":"p5 exam one","score":0,"passed":0,"question_count":2,"started_at":1789462771,"d
+FAIL submit C blank 200 expected=200 got=405 body=Method Not Allowed
+FAIL score C 0 expected=0 got= body=Method Not Allowed
+ok   review A 200 (200)
+FAIL review A exam title expected=p5 exam one got= body={"ok":true,"data":{"items":[{"id":28,"exam_id":31,"exam_title":"p5 exam one","score":-1,"passed":0,"question_count":2,"started_at":1789462775,"deadline_at":1789464575,"submitted_at":0},{"id":27,"exam_id":31,"exam_title":"p5 exam one","score":0,"passed":0,"question_count":2,"started_at":1789462771,"d
+FAIL review A total 20 expected=20 got= body={"ok":true,"data":{"items":[{"id":28,"exam_id":31,"exam_title":"p5 exam one","score":-1,"passed":0,"question_count":2,"started_at":1789462775,"deadline_at":1789464575,"submitted_at":0},{"id":27,"exam_id":31,"exam_title":"p5 exam one","score":0,"passed":0,"question_count":2,"started_at":1789462771,"d
+FAIL review A passed expected=True got= body={"ok":true,"data":{"items":[{"id":28,"exam_id":31,"exam_title":"p5 exam one","score":-1,"passed":0,"question_count":2,"started_at":1789462775,"deadline_at":1789464575,"submitted_at":0},{"id":27,"exam_id":31,"exam_title":"p5 exam one","score":0,"passed":0,"question_count":2,"started_at":1789462771,"d
+ok   review A items 2 (2)
+FAIL review A has answers expected=True got= body={"ok":true,"data":{"items":[{"id":28,"exam_id":31,"exam_title":"p5 exam one","score":-1,"passed":0,"question_count":2,"started_at":1789462775,"deadline_at":1789464575,"submitted_at":0},{"id":27,"exam_id":31,"exam_title":"p5 exam one","score":0,"passed":0,"question_count":2,"started_at":1789462771,"d
+FAIL review A single answer expected=B got= body={"ok":true,"data":{"items":[{"id":28,"exam_id":31,"exam_title":"p5 exam one","score":-1,"passed":0,"question_count":2,"started_at":1789462775,"deadline_at":1789464575,"submitted_at":0},{"id":27,"exam_id":31,"exam_title":"p5 exam one","score":0,"passed":0,"question_count":2,"started_at":1789462771,"d
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json;d=json.load(open('.smoke/last.json'))['data'];print(str(bool(d['items'][0]['explanation'])))
+                                                                             ~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'explanation'
+FAIL review A has explanation expected=True got= body={"ok":true,"data":{"items":[{"id":28,"exam_id":31,"exam_title":"p5 exam one","score":-1,"passed":0,"question_count":2,"started_at":1789462775,"deadline_at":1789464575,"submitted_at":0},{"id":27,"exam_id":31,"exam_title":"p5 exam one","score":0,"passed":0,"question_count":2,"started_at":1789462771,"d
+FAIL review A score_gained 10 expected=10 got= body={"ok":true,"data":{"items":[{"id":28,"exam_id":31,"exam_title":"p5 exam one","score":-1,"passed":0,"question_count":2,"started_at":1789462775,"deadline_at":1789464575,"submitted_at":0},{"id":27,"exam_id":31,"exam_title":"p5 exam one","score":0,"passed":0,"question_count":2,"started_at":1789462771,"d
+ok   review B 200 (200)
+ok   review B single wrong (False)
+ok   review B single student (A)
+ok   review B judge blank ()
+ok   review B judge not in wrongbook via blank (False)
+ok   review missing 404 (404)
+ok   wrong list 200 (200)
+ok   wrong total 1 (exam QA) (1)
+ok   wrong item QA (45)
+ok   attempt list 200 (200)
+FAIL attempt list total 3 expected=3 got=2 body={"ok":true,"data":{"items":[{"id":28,"exam_id":31,"exam_title":"p5 exam one","score":-1,"passed":0,"question_count":2,"started_at":1789462775,"deadline_at":1789464575,"submitted_at":0},{"id":27,"exam_id":31,"exam_title":"p5 exam one","score":0,"passed":0,"question_count":2,"started_at":1789462771,"d
+ok   attempt list item has title (p5 exam one)
+FAIL attempt best is C(0) first (id desc) expected=0 got=-1 body={"ok":true,"data":{"items":[{"id":28,"exam_id":31,"exam_title":"p5 exam one","score":-1,"passed":0,"question_count":2,"started_at":1789462775,"deadline_at":1789464575,"submitted_at":0},{"id":27,"exam_id":31,"exam_title":"p5 exam one","score":0,"passed":0,"question_count":2,"started_at":1789462771,"d
+ok   attempt list filter empty (0)
+ok   student list stats 200 (200)
+FAIL EX1 my_attempts 3 best 20 expected=ok got=no body={"ok":true,"data":{"items":[{"exam":{"id":33,"category_id":30,"title":"p5 exam short","duration_min":30,"total_score":50,"pass_score":25,"rules":[{"type":"single","category_id":30,"count":5,"score_each":10}],"status":"published","created_at":1789462769,"question_count":5},"my_attempts":0,"my_best_sc
+ok   student2 register 200 (200)
+ok   student2 login 200 (200)
+FAIL B review A 404 expected=404 got=200 body={"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+FAIL B submit A 404 expected=404 got=405 body=Method Not Allowed
+FAIL B autosave A 404 expected=404 got=405 body=Method Not Allowed
+ok   update bad sum 400 (400)
+ok   update 200 (200)
+ok   update title (p5 exam one v2)
+ok   update duration 45 (45)
+ok   update missing 404 (404)
+ok   delete EX1 200 (200)
+ok   start deleted 404 (404)
+ok   review deleted exam still 200 (200)
+FAIL deleted exam title still in review expected=p5 exam one v2 got= body={"ok":true,"data":{"items":[{"id":28,"exam_id":31,"exam_title":"p5 exam one v2","score":-1,"passed":0,"question_count":2,"started_at":1789462775,"deadline_at":1789464575,"submitted_at":0},{"id":27,"exam_id":31,"exam_title":"p5 exam one v2","score":0,"passed":0,"question_count":2,"started_at":1789462
+ok   admin list after delete 2 (2)
+ok   delete again 404 (404)
+ok   server stopped (Windows kill=TearDown, rc=143 非优雅关停路径)
+ok   shutdown 日志干净
+PASS=76 FAIL=36

@@ -18,6 +18,7 @@ const announcements = @import("../web/handlers/announcements.zig");
 const favorites = @import("../web/handlers/favorites.zig");
 const notes = @import("../web/handlers/notes.zig");
 const stats_h = @import("../web/handlers/stats.zig");
+const admin_logs = @import("../web/handlers/admin_logs.zig");
 const auth_mw = @import("auth_middleware.zig");
 const respond = @import("../web/respond.zig");
 
@@ -25,9 +26,9 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
     try router.route(.GET, "/api/health", framework.Handler.fromFn(health.handle));
 
     // 前端静态资源（web/dist 构建产物）
-    try router.route(.GET, "/static/*", framework.Handler.initSingleton(framework.StaticFileServer, &st.static_assets));
+    try router.route(.GET, "/static/*", framework.Handler.initSingleton(&st.static_assets));
     // 根路径先返回前端占位页；SPA 回退路由在第 8 期前端接入时完善
-    try router.route(.GET, "/", framework.Handler.initSingleton(framework.StaticFileServer, &st.static_index));
+    try router.route(.GET, "/", framework.Handler.initSingleton(&st.static_index));
 
     // ---------------- 认证与用户（第 1 期） ----------------
     var api = try router.group("/api");
@@ -159,5 +160,8 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
     // 后台统计（第 7 期 M-H H1）
     try admin.route(.GET, "/stats", framework.Handler.fromFn(stats_h.overview));
 
-    router.notFoundHandler(framework.Handler.initSingleton(respond.SpaFallback, &st.spa));
+    // 日志管理（审计日志查询）
+    try admin.route(.GET, "/audit-logs", framework.Handler.fromFn(admin_logs.adminList));
+
+    router.notFoundHandler(framework.Handler.initSingleton(&st.spa));
 }

@@ -89,12 +89,35 @@ pub fn appMain(io: std.Io, allocator: std.mem.Allocator) !void {
     // 注意：rt.deinit() 会触发中间件 destroy 钩子（如 RateLimiter.deinit），
     // 必须发生在销毁 st 之前 → 不用 defer，在 run() 返回后按序清理。
 
+    const audit_mw = @import("audit_middleware.zig");
+    const audit_repo_mod = @import("../db/audit_repo.zig");
+    var audit_repo_inst = audit_repo_mod.AuditLogRepo.init(database);
+    const audit_middleware_inst = try allocator.create(audit_mw.AuditLogMiddleware);
+    audit_middleware_inst.* = audit_mw.AuditLogMiddleware.init(&audit_repo_inst, allocator);
+    errdefer allocator.destroy(audit_middleware_inst);
+
+    // 使用框架内置的日志中间件（http_logging 模块已实现完整能力）
+    var framework_logger = try framework.Logger.init(allocator, io, .{
+        .min_level = .info,
+        .format = .text,
+        .output = .file,
+        .file = .{ .path = data_dir ++ "/logs/app.log", .max_size = 1024 * 1024, .max_backups = 3, .compress = false },
+    });
+    errdefer framework_logger.deinit();
+    const framework_log_mw = try allocator.create(framework.LoggingMiddleware);
+    framework_log_mw.* = .{ .logger = &framework_logger };
+    errdefer allocator.destroy(framework_log_mw);
+
     // 先注册 = 外层 = 先执行
     try rt.use(framework.Middleware.init(framework.ErrorRenderer, &st.error_renderer));
     try rt.use(framework.Middleware.init(framework.RequestIdMiddleware, &st.request_id));
     try rt.use(framework.Middleware.init(framework.SecurityHeaders, &st.security));
     try rt.use(framework.Middleware.init(framework.CorsMiddleware, &st.cors));
     try rt.use(framework.Middleware.init(framework.RateLimiter, &st.rate));
+    // 审计日志中间件（记录所有操作到数据库）
+    try rt.use(framework.Middleware.init(audit_mw.AuditLogMiddleware, audit_middleware_inst));
+    // 应用运行日志中间件（使用框架内置 http_logging.Logger + LoggingMiddleware）
+    try rt.use(framework.Middleware.init(framework.LoggingMiddleware, framework_log_mw));
 
     try router.register(st, &rt);
 
@@ -112,6 +135,9 @@ pub fn appMain(io: std.Io, allocator: std.mem.Allocator) !void {
     server.deinit();
     rt.deinit();
     services.deinit();
+    allocator.destroy(audit_middleware_inst);
+    allocator.destroy(framework_log_mw);
+    framework_logger.deinit();
     if (st.spa.html.len > 0) allocator.free(st.spa.html);
     st.session.deinit();
     st.login_guard.deinit();

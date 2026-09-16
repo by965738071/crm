@@ -47,6 +47,7 @@ const routes = [
       { path: 'exams', name: 'admin-exams', component: A('ExamManage') },
       { path: 'orders', name: 'admin-orders', component: A('OrderManage') },
       { path: 'announcements', name: 'admin-announcements', component: A('AnnouncementManage') },
+      { path: 'logs', name: 'admin-logs', component: A('LogView') },
     ],
   },
   { path: '/:pathMatch(.*)*', name: 'not-found', component: S('NotFound') },

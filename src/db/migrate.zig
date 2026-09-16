@@ -244,8 +244,27 @@ const v1 = [_][]const u8{
     ,
 };
 
+/// v2：审计日志表（应用运行日志走框架 Logger 文件输出 data/logs/app.log，不入库）
+const v2 = [_][]const u8{
+    \\CREATE TABLE IF NOT EXISTS audit_logs (
+    \\  id INTEGER PRIMARY KEY AUTOINCREMENT,
+    \\  user_id INTEGER NOT NULL DEFAULT 0,
+    \\  action TEXT NOT NULL,
+    \\  target_type TEXT NOT NULL DEFAULT '',
+    \\  target_id INTEGER NOT NULL DEFAULT 0,
+    \\  request_summary TEXT NOT NULL DEFAULT '',
+    \\  ip TEXT NOT NULL DEFAULT '',
+    \\  created_at INTEGER NOT NULL
+    \\)
+    ,
+    "CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at)",
+};
+
 pub const migrations = [_]Migration{
     .{ .sql = &v1 },
+    .{ .sql = &v2 },
 };
 
 /// 执行所有未应用的迁移，并写入种子数据

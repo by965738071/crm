@@ -152,22 +152,32 @@ function onCommand(cmd) {
 .nav :deep(.el-menu-item) {
   height: 40px !important;
   line-height: 40px !important;
-  border-radius: 20px;
-  margin: 12px 2px;
+  border-radius: 6px;
+  margin: 0 2px;
   font-size: 15px;
-  padding: 0 18px;
-  transition: background 0.2s, color 0.2s;
+  padding: 0 16px;
+  color: var(--el-text-color-regular) !important;
+  transition: color 0.2s, background 0.15s;
 }
 .nav :deep(.el-menu-item:hover) {
-  background: var(--el-color-primary-light-9) !important;
   color: var(--brand) !important;
+  background: var(--el-color-primary-light-9) !important;
 }
 .nav :deep(.el-menu-item.is-active) {
-  background: var(--brand-grad);
-  color: #fff !important;
+  color: var(--brand) !important;
   font-weight: 600;
+  background: transparent !important;
   border-bottom: none !important;
-  box-shadow: 0 6px 14px rgba(30, 110, 245, 0.30);
+  box-shadow: none !important;
+  position: relative;
+}
+.nav :deep(.el-menu-item.is-active)::after {
+  content: "";
+  position: absolute;
+  left: 16px; right: 16px; bottom: 4px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: var(--brand-grad);
 }
 .usr { white-space: nowrap; }
 .usr-name {

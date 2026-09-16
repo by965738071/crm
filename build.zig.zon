@@ -34,7 +34,7 @@
     .dependencies = .{
         .http_framework = .{
             .url = "git+https://github.com/by965738071/http-framework#main",
-            .hash = "http_framework-1.0.0-1YqJfuZ9DgCpDIyDP4IsJEX7mQZncdAlkisR3ReZ4icR"
+            .hash = "http_framework-1.0.0-1YqJfggPDwC3YUOepWUpterlnHxsBnt6_cIb079DAnIw",
         },
 
         // .http_framework = .{

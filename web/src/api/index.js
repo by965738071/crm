@@ -132,4 +132,6 @@ export const adminApi = {
   unpublishAnnouncement: (id) => http.post(`/admin/announcements/${id}/unpublish`),
   // 统计
   stats: () => http.get('/admin/stats'),
+  // 审计日志
+  auditLogs: (params) => http.get('/admin/audit-logs', { params }),
 }

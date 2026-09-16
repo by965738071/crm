@@ -25,6 +25,7 @@ pub const note_repo = @import("db/note_repo.zig");
 pub const stats_repo = @import("db/stats_repo.zig");
 pub const svc_identity = @import("svc/identity.zig");
 pub const svc_storage = @import("svc/storage.zig");
+pub const audit_repo = @import("db/audit_repo.zig");
 pub const respond = @import("web/respond.zig");
 
 pub const appMain = app.appMain;

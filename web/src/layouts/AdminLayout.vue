@@ -24,6 +24,7 @@ const menus = [
   { path: '/admin/exams', title: '试卷管理', icon: 'Histogram' },
   { path: '/admin/orders', title: '订单管理', icon: 'List' },
   { path: '/admin/announcements', title: '公告管理', icon: 'Bell' },
+  { path: '/admin/logs', title: '日志管理', icon: 'Tickets' },
 ]
 
 const hdTitle = computed(
@@ -57,7 +58,7 @@ async function onLogout() {
       </el-menu>
       <div class="side-foot">Medical Exam Admin</div>
     </el-aside>
-    <el-container>
+    <el-container class="wrap">
       <el-header class="hd" height="56px">
         <div class="hd-title">{{ hdTitle }}</div>
         <div class="hd-right">
@@ -91,10 +92,11 @@ async function onLogout() {
 </template>
 
 <style scoped>
-.page { min-height: 100vh; }
+.page { height: 100vh; overflow: hidden; }
+.wrap { height: 100%; min-height: 0; }
 .side {
   background: linear-gradient(180deg, #0c1d36 0%, #0b2a4a 100%);
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: column; height: 100%;
 }
 .brand {
   display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -106,7 +108,7 @@ async function onLogout() {
   background: var(--brand-grad); color: #fff;
   display: flex; align-items: center; justify-content: center; font-size: 15px;
 }
-.menu { border-right: none; flex: 1; }
+.menu { border-right: none; flex: 1; overflow-y: auto; }
 .menu :deep(.el-menu-item) { border-radius: 8px; margin: 2px 10px; }
 .menu :deep(.el-menu-item.is-active) {
   background: linear-gradient(90deg, rgba(30, 110, 245, 0.95), rgba(18, 184, 166, 0.75));
@@ -132,5 +134,7 @@ async function onLogout() {
   max-width: 1700px;
   width: 100%;
   margin: 0 auto;
+  overflow-y: auto;
+  min-height: 0;
 }
 </style>

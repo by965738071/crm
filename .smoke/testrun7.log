@@ -1,0 +1,35 @@
+1/33 root.test_0...OK
+2/33 db.migrate.test.migrate creates schema and idempotent seed...[default] (warn): seed: created superadmin 'admin' (admin@example.com) with default password — 请尽快登录修改！
+OK
+3/33 db.user_repo.test.user_repo create/get/update/list...OK
+4/33 db.category_repo.test.category_repo create/get/update/findAll/delete...OK
+5/33 db.course_repo.test.course_repo courses/chapters/lessons lifecycle...OK
+6/33 db.resource_repo.test.resource_repo lifecycle + filters...OK
+7/33 db.learning_repo.test.utcDate civil boundaries...OK
+8/33 db.learning_repo.test.validProgressStatus...OK
+9/33 db.learning_repo.test.learning_repo enroll / progress / study log / my list...OK
+10/33 db.question_repo.test.validateQuestion single/multi/judge...OK
+11/33 db.question_repo.test.checkAnswer grading...OK
+12/33 db.question_repo.test.encodeOptions/decodeOptions round-trip...OK
+13/33 db.question_repo.test.parseCsv...OK
+14/33 db.question_repo.test.question_repo CRUD / list / draw...OK
+15/33 db.practice_repo.test.validSource...OK
+16/33 db.practice_repo.test.practice_repo wrong book / master / favorites...OK
+17/33 db.exam_repo.test.validateExam 规则与分值一致性...OK
+18/33 db.exam_repo.test.rules / snapshot / answers JSON round-trip...OK
+19/33 db.exam_repo.test.gradeAnswer...OK
+20/33 db.exam_repo.test.drawSnapshot 池校验 / 同桶去重 / 顺序...OK
+21/33 db.exam_repo.test.试卷 CRUD / 考试全流程（交卷判分 + 流水 + 错题本 + 重复交卷）...OK
+22/33 db.order_repo.test.order_repo proxy order / pay / cancel state machine and enrollment linkage...OK
+23/33 db.order_repo.test_0...OK
+24/33 db.announcement_repo.test.announcement_repo create / publish / unpublish / list / delete...OK
+25/33 db.announcement_repo.test_0...OK
+26/33 db.favorite_repo.test.favorite_repo add idempotent / remove / list filters soft-deleted targets...OK
+27/33 db.favorite_repo.test_0...OK
+28/33 db.note_repo.test.note_repo create / update / list filters / owner isolation / soft delete...OK
+29/33 db.note_repo.test_0...OK
+30/33 db.stats_repo.test.stats_repo overview counts with UTC-day windows...OK
+31/33 db.stats_repo.test_0...OK
+32/33 svc.identity.test.hashPassword/verifyPassword...OK
+33/33 svc.identity.test.LoginGuard locks after 5 failures and unlocks...OK
+All 33 tests passed.

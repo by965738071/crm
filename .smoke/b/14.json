@@ -1,1 +1,1 @@
-{"ok":true,"data":{"id":170,"category_id":77,"title":"p5 exam draft","duration_min":20,"total_score":20,"pass_score":10,"rules":[{"type":"single","category_id":77,"count":1,"score_each":10},{"type":"judge","category_id":77,"count":1,"score_each":10}],"status":"draft","created_at":1789465406,"question_count":2}}
+{"ok":true,"data":{"id":10,"category_id":1,"name":"p7r11789527877","orig_name":"p7.txt","rtype":"doc","size":4,"mime":"text/plain","uploader_id":1,"is_public":1,"created_at":1789527882}}

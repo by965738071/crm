@@ -1,1 +1,1 @@
-{"ok":true,"data":{"id":169,"category_id":77,"title":"p5 exam one","duration_min":30,"total_score":20,"pass_score":10,"rules":[{"type":"single","category_id":77,"count":1,"score_each":10},{"type":"judge","category_id":77,"count":1,"score_each":10}],"status":"published","created_at":1789465405,"question_count":2}}
+{"ok":true,"data":{"id":13,"title":"p7ann1789527877 A1","content":"alpha content","status":"published","author_id":1,"published_at":1789527884,"created_at":1789527882}}

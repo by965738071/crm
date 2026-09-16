@@ -1,0 +1,40 @@
+debug(zio): Spawning thread 0
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
+debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
+debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
+debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out

@@ -1,1 +1,1 @@
-{"ok":true,"data":{"id":123,"email":"p5stuB1789465401@ex.com","username":"p5stuB1789465401","nickname":"p5stuB1789465401","avatar":"","role":"student","status":"active","created_at":1789465421}}
+{"ok":true,"data":{"items":[{"id":27,"target_type":"resource","target_id":10,"title":"p7r11789527877","cover":"","price":0,"rtype":"doc","created_at":1789527892},{"id":25,"target_type":"course","target_id":45,"title":"p7c11789527877","cover":"","price":9900,"rtype":"","created_at":1789527891}],"total":2,"page":1,"size":20}}

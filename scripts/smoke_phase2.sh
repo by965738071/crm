@@ -97,6 +97,12 @@ r=$(req GET /api/admin/resources "$JAR_AD" -); expect "admin list 200" "200" "$r
 r=$(req GET "/api/admin/resources/99999" "$JAR_AD" -); expect "admin get missing 404" "404" "$r"
 r=$(req POST /api/admin/resources "$JAR_AD" "{\"category_id\":1,\"name\":\"元数据资源\",\"orig_name\":\"meta.txt\",\"rtype\":\"doc\",\"file_path\":\"uploads/2026-09/meta.txt\",\"size\":4,\"mime\":\"text/plain\",\"is_public\":1}"); expect "meta create 200" "200" "$r"
 RIDM=$(jget "['data']['id']")
+# 元数据编辑：前端拿不到 file_path，PUT 必须只凭 4 字段就能更新（回归：旧版强校验 file_path 必 400）
+body='{"category_id":1,"name":"meta-renamed","rtype":"pdf","is_public":0}'
+r=$(req PUT "/api/admin/resources/$RIDM" "$JAR_AD" "$body"); expect "meta update w/o file_path 200" "200" "$r"
+grep -q meta-renamed "$DIR/last.json"; expect "meta update name persisted" "0" "$?"
+body='{"category_id":1,"name":"bad","rtype":"exe","is_public":0}'
+r=$(req PUT "/api/admin/resources/$RIDM" "$JAR_AD" "$body"); expect "meta update bad rtype 400" "400" "$r"
 r=$(req DELETE "/api/admin/resources/$RIDM" "$JAR_AD" -); expect "meta delete 200" "200" "$r"
 r=$(req GET "/api/admin/resources/$RIDM" "$JAR_AD" -); expect "meta get after delete 404" "404" "$r"
 

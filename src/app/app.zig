@@ -67,8 +67,11 @@ pub fn appMain(io: std.Io, allocator: std.mem.Allocator) !void {
     // 自引用回填：中间件指向 State 内的 session（State 堆分配，地址稳定）
     st.auth_user.session = &st.session;
     st.auth_admin.session = &st.session;
+    // SPA 入口预载入内存（缺失 = 前端未构建，空串即可，非错误）
+    st.spa.html = std.Io.Dir.cwd().readFileAlloc(io, static_dir ++ "/index.html", allocator, .limited(1 << 20)) catch "";
 
     errdefer {
+        if (st.spa.html.len > 0) allocator.free(st.spa.html);
         st.session.deinit();
         st.login_guard.deinit();
         allocator.destroy(st);
@@ -109,6 +112,7 @@ pub fn appMain(io: std.Io, allocator: std.mem.Allocator) !void {
     server.deinit();
     rt.deinit();
     services.deinit();
+    if (st.spa.html.len > 0) allocator.free(st.spa.html);
     st.session.deinit();
     st.login_guard.deinit();
     allocator.destroy(st);

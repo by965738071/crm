@@ -5,99 +5,13 @@ debug(zio): poll() timed out
 debug(zio): QueueUserAPC succeeded
 debug(zio): poll() woken by APC
 debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
 debug(zio): QueueUserAPC succeeded
 debug(zio): poll() woken by APC
 debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
 debug(zio): poll() timed out
 debug(zio): poll() timed out
 debug(zio): poll() timed out
@@ -173,30 +87,55 @@ debug(zio): poll() timed out
 debug(zio): poll() timed out
 debug(zio): poll() timed out
 debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
 debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
 debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
 debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
 debug(zio): poll() timed out
+unexpected error: .INVALID_PARAMETER
+please file a bug report: https://github.com/lalinsky/zio/issues/new
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\os\base.zig:35:44: 0x7ff75d6df0cf in unexpectedError__func_880 (crm_zcu.obj)
+            std.debug.dumpCurrentStackTrace(.{});
+                                           ^
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\os\fs.zig:1924:44: 0x7ff75d6def55 in errnoToFileWriteError (crm_zcu.obj)
+                else => |e| unexpectedError(e),
+                                           ^
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\os\fs.zig:1361:45: 0x7ff75d748409 in writev (crm_zcu.obj)
+                return errnoToFileWriteError(w.GetLastError());
+                                            ^
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\ev\backends\common.zig:239:22: 0x7ff75d7480ff in handleFileWriteStreaming (crm_zcu.obj)
+        if (fs.writev(data.handle, data.buffer.iovecs)) |bytes_written| {
+                     ^
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\ev\backends\common.zig:395:29: 0x7ff75d92952b in fileWriteStreamingWork (crm_zcu.obj)
+    handleFileWriteStreaming(&file_write.c);
+                            ^
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\ev\thread_pool.zig:342:26: 0x7ff75d9306d1 in runTasks (crm_zcu.obj)
+                work.func(work);
+                         ^
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\ev\thread_pool.zig:294:43: 0x7ff75d92eefa in run (crm_zcu.obj)
+            const shutdown = self.runTasks();
+                                          ^
+D:\Applications\Scoop\apps\zig-dev\0.17.0-dev.2131\lib\std\Thread.zig:422:13: 0x7ff75d92ed85 in callFn__func_2934 (crm_zcu.obj)
+            @call(.auto, f, args);
+            ^
+D:\Applications\Scoop\apps\zig-dev\0.17.0-dev.2131\lib\std\Thread.zig:536:30: 0x7ff75d92eb94 in entryFn (crm_zcu.obj)
+                return callFn(f, self.fn_args);
+                             ^
+???:?:?: 0x7ffd13337373 in ??? (KERNEL32.DLL)
+???:?:?: 0x7ffd151bcc90 in ??? (ntdll.dll)
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
 debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
-debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
+error: unhandled error in pipeline: Unexpected
 debug(zio): poll() timed out
 debug(zio): poll() timed out
 debug(zio): poll() timed out
@@ -211,6 +150,73 @@ debug(zio): poll() timed out
 debug(zio): poll() timed out
 debug(zio): QueueUserAPC succeeded
 debug(zio): poll() woken by APC
+debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
+debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
+debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
+debug(zio): poll() timed out
+unexpected error: .INVALID_PARAMETER
+please file a bug report: https://github.com/lalinsky/zio/issues/new
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\os\base.zig:35:44: 0x7ff75d6df0cf in unexpectedError__func_880 (crm_zcu.obj)
+            std.debug.dumpCurrentStackTrace(.{});
+                                           ^
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\os\fs.zig:1924:44: 0x7ff75d6def55 in errnoToFileWriteError (crm_zcu.obj)
+                else => |e| unexpectedError(e),
+                                           ^
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\os\fs.zig:1361:45: 0x7ff75d748409 in writev (crm_zcu.obj)
+                return errnoToFileWriteError(w.GetLastError());
+                                            ^
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\ev\backends\common.zig:239:22: 0x7ff75d7480ff in handleFileWriteStreaming (crm_zcu.obj)
+        if (fs.writev(data.handle, data.buffer.iovecs)) |bytes_written| {
+                     ^
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\ev\backends\common.zig:395:29: 0x7ff75d92952b in fileWriteStreamingWork (crm_zcu.obj)
+    handleFileWriteStreaming(&file_write.c);
+                            ^
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\ev\thread_pool.zig:342:26: 0x7ff75d9306d1 in runTasks (crm_zcu.obj)
+                work.func(work);
+                         ^
+F:\bxb\other\zig\crm\zig-pkg\zio-0.17.0-xHbVVC8rKQC-IaVNQvJWKA_ACKKh6BdQ1PZyS9zqJpq-\src\ev\thread_pool.zig:294:43: 0x7ff75d92eefa in run (crm_zcu.obj)
+            const shutdown = self.runTasks();
+                                          ^
+D:\Applications\Scoop\apps\zig-dev\0.17.0-dev.2131\lib\std\Thread.zig:422:13: 0x7ff75d92ed85 in callFn__func_2934 (crm_zcu.obj)
+            @call(.auto, f, args);
+            ^
+D:\Applications\Scoop\apps\zig-dev\0.17.0-dev.2131\lib\std\Thread.zig:536:30: 0x7ff75d92eb94 in entryFn (crm_zcu.obj)
+                return callFn(f, self.fn_args);
+                             ^
+???:?:?: 0x7ffd13337373 in ??? (KERNEL32.DLL)
+???:?:?: 0x7ffd151bcc90 in ??? (ntdll.dll)
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
+debug(zio): poll() timed out
+debug(zio): QueueUserAPC succeeded
+debug(zio): poll() woken by APC
+error: unhandled error in pipeline: Unexpected
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
+debug(zio): poll() timed out
 debug(zio): poll() timed out
 debug(zio): poll() timed out
 debug(zio): poll() timed out

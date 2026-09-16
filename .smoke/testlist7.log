@@ -1,0 +1,15 @@
+thread 22412 panic: unrecognized command line argument: --list-tests
+D:\Applications\Scoop\apps\zig-dev\0.17.0-dev.2131\lib\compiler\test_runner.zig:62:18: 0x7ff7845535c1 in main (test_zcu.obj)
+            panic("unrecognized command line argument: {s}", .{arg});
+                 ^
+D:\Applications\Scoop\apps\zig-dev\0.17.0-dev.2131\lib\std\start.zig:789: 0x7ff784551141 in callMain (test_zcu.obj)
+    if (fn_info.param_types[0].? == std.process.Init.Minimal) return wrapMain(root.main(.{
+
+D:\Applications\Scoop\apps\zig-dev\0.17.0-dev.2131\lib\std\start.zig:749:28: 0x7ff784551141 in main (test_zcu.obj)
+            return callMain(std.os.windows.peb().ProcessParameters.CommandLine.slice(), .global);
+                           ^
+D:\Applications\Scoop\apps\zig-dev\0.17.0-dev.2131\lib\libc\mingw\crt\crtexe.c:276: 0x7ff78493e6a7 in __tmainCRTStartup (crt2.obj)
+    ret = _tmain (argc, argv, envp);
+
+???:?:?: 0x7ffd13337373 in ??? (KERNEL32.DLL)
+???:?:?: 0x7ffd151bcc90 in ??? (ntdll.dll)

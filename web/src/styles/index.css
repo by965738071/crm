@@ -1,0 +1,156 @@
+/* ===== 医学考试学习平台 · 全局主题 ===== */
+:root {
+  --brand: #1e6ef5;
+  --brand-deep: #0d5bd6;
+  --brand-accent: #12b8a6;
+  --brand-purple: #8b5cf6;
+  --brand-grad: linear-gradient(135deg, #1e6ef5 0%, #12b8a6 100%);
+  --brand-grad-soft: linear-gradient(135deg, #eaf2fe 0%, #e7faf6 100%);
+
+  --el-color-primary: #1e6ef5;
+  --el-color-primary-light-3: #4b8bf7;
+  --el-color-primary-light-5: #79a9f9;
+  --el-color-primary-light-7: #a9c7fb;
+  --el-color-primary-light-8: #c1d6fc;
+  --el-color-primary-light-9: #e8f0fe;
+  --el-color-primary-dark-2: #1858c4;
+
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 20px;
+
+  --el-box-shadow-light: 0 2px 12px rgba(20, 40, 80, 0.08);
+  --el-box-shadow: 0 8px 24px rgba(20, 40, 80, 0.10);
+
+  --bg-page: #f5f8fc;
+  --border-soft: #e6edf7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* 极光背景：三团柔和的渐变光晕铺满全屏，边缘不再是死白 */
+body {
+  color: var(--el-text-color-primary);
+  font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  background:
+    radial-gradient(900px 560px at 6% -6%, rgba(30, 110, 245, 0.10), transparent 62%),
+    radial-gradient(1000px 620px at 96% 4%, rgba(18, 184, 166, 0.11), transparent 60%),
+    radial-gradient(760px 560px at 52% 118%, rgba(139, 92, 246, 0.07), transparent 62%),
+    var(--bg-page);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c6d0e0;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a8b6cc;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ===== 通用工具类 ===== */
+/* 渐变文字 */
+.grad-text {
+  background: linear-gradient(90deg, #1e6ef5, #12b8a6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 渐变描边卡片（hover 发光描边） */
+.glow-card {
+  position: relative;
+  transition: box-shadow 0.25s, transform 0.25s, border-color 0.25s;
+}
+.glow-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(30, 110, 245, 0.14);
+}
+
+/* 卡片进场动画 */
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: riseIn 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* ===== Element Plus 微调 ===== */
+.el-card {
+  --el-card-border-radius: 14px;
+  border-color: var(--border-soft);
+}
+.el-card.is-always-shadow,
+.el-card.is-hover-shadow:hover {
+  box-shadow: 0 8px 26px rgba(30, 110, 245, 0.08);
+}
+
+.el-button--primary {
+  background: linear-gradient(135deg, #1e6ef5, #12b8a6);
+  border: none;
+  box-shadow: 0 6px 16px rgba(30, 110, 245, 0.28);
+}
+.el-button--primary:hover,
+.el-button--primary:focus {
+  background: linear-gradient(135deg, #2f7cf7, #21c4b0);
+  box-shadow: 0 8px 20px rgba(30, 110, 245, 0.35);
+  transform: translateY(-1px);
+}
+
+/* 页头（列表页统一标题） */
+.page-title {
+  display: flex;
+  align-items: center;
+  margin: 4px 0 16px;
+}
+.page-title::before {
+  content: "";
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--brand-grad);
+  margin-right: 10px;
+}
+.page-title h3 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+}
+.page-title .sub {
+  margin-left: 12px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  font-weight: 400;
+}
+
+/* 分页统一居中 */
+.el-pagination {
+  justify-content: center;
+  margin-top: 18px;
+}

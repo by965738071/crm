@@ -13,6 +13,11 @@ const learning = @import("../web/handlers/learning.zig");
 const questions = @import("../web/handlers/questions.zig");
 const practice = @import("../web/handlers/practice.zig");
 const exams = @import("../web/handlers/exams.zig");
+const orders = @import("../web/handlers/orders.zig");
+const announcements = @import("../web/handlers/announcements.zig");
+const favorites = @import("../web/handlers/favorites.zig");
+const notes = @import("../web/handlers/notes.zig");
+const stats_h = @import("../web/handlers/stats.zig");
 const auth_mw = @import("auth_middleware.zig");
 const respond = @import("../web/respond.zig");
 
@@ -64,6 +69,18 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
     try study.route(.POST, "/exam-attempts/:id/submit", framework.Handler.fromFn(exams.submit));
     try study.route(.GET, "/exam-attempts", framework.Handler.fromFn(exams.attemptList));
     try study.route(.GET, "/exam-attempts/:id", framework.Handler.fromFn(exams.attemptDetail));
+
+    // 订单（第 6 期 M-F）：学员只读本人订单；支付/取消走管理端（F2 语义）
+    try study.route(.GET, "/orders", framework.Handler.fromFn(orders.myOrders));
+
+    // 收藏与笔记（第 7 期 M-G）
+    try study.route(.POST, "/favorites", framework.Handler.fromFn(favorites.add));
+    try study.route(.DELETE, "/favorites", framework.Handler.fromFn(favorites.remove));
+    try study.route(.GET, "/favorites", framework.Handler.fromFn(favorites.list));
+    try study.route(.POST, "/notes", framework.Handler.fromFn(notes.create));
+    try study.route(.GET, "/notes", framework.Handler.fromFn(notes.list));
+    try study.route(.PUT, "/notes/:id", framework.Handler.fromFn(notes.update));
+    try study.route(.DELETE, "/notes/:id", framework.Handler.fromFn(notes.delete));
 
     // 管理端：AuthRequired{admin_only}（admin/superadmin）
     var admin = try api.group("/admin");
@@ -120,5 +137,27 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
     try admin.route(.PUT, "/exams/:id", framework.Handler.fromFn(exams.adminUpdate));
     try admin.route(.DELETE, "/exams/:id", framework.Handler.fromFn(exams.adminDelete));
 
-    router.notFoundHandler(framework.Handler.fromFn(respond.notFoundHandler));
+    // 订单管理（第 6 期 M-F）
+    try admin.route(.GET, "/orders", framework.Handler.fromFn(orders.adminList));
+    try admin.route(.POST, "/orders", framework.Handler.fromFn(orders.adminCreate));
+    try admin.route(.POST, "/orders/:id/pay", framework.Handler.fromFn(orders.adminPay));
+    try admin.route(.POST, "/orders/:id/cancel", framework.Handler.fromFn(orders.adminCancel));
+
+    // ---------------- 公告（第 7 期 M-G G1）：公开端只读已发布 ----------------
+    try api.route(.GET, "/announcements", framework.Handler.fromFn(announcements.list));
+    try api.route(.GET, "/announcements/:id", framework.Handler.fromFn(announcements.detail));
+
+    // 公告管理（第 7 期）
+    try admin.route(.GET, "/announcements", framework.Handler.fromFn(announcements.adminList));
+    try admin.route(.POST, "/announcements", framework.Handler.fromFn(announcements.adminCreate));
+    try admin.route(.GET, "/announcements/:id", framework.Handler.fromFn(announcements.adminGet));
+    try admin.route(.PUT, "/announcements/:id", framework.Handler.fromFn(announcements.adminUpdate));
+    try admin.route(.DELETE, "/announcements/:id", framework.Handler.fromFn(announcements.adminDelete));
+    try admin.route(.POST, "/announcements/:id/publish", framework.Handler.fromFn(announcements.adminPublish));
+    try admin.route(.POST, "/announcements/:id/unpublish", framework.Handler.fromFn(announcements.adminUnpublish));
+
+    // 后台统计（第 7 期 M-H H1）
+    try admin.route(.GET, "/stats", framework.Handler.fromFn(stats_h.overview));
+
+    router.notFoundHandler(framework.Handler.initSingleton(respond.SpaFallback, &st.spa));
 }

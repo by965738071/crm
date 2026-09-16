@@ -10,6 +10,7 @@ const framework = @import("http_framework");
 const db = @import("../db/db.zig");
 const auth_mw = @import("auth_middleware.zig");
 const identity = @import("../svc/identity.zig");
+const respond = @import("../web/respond.zig");
 
 pub const State = struct {
     allocator: std.mem.Allocator,
@@ -29,6 +30,8 @@ pub const State = struct {
 
     static_index: framework.StaticFileServer,
     static_assets: framework.StaticFileServer,
+    /// SPA 深链回退（index.html 启动时读入；前端未构建时为空，退回 JSON 404）
+    spa: respond.SpaFallback = .{},
 
     error_renderer: framework.ErrorRenderer = .{},
     request_id: framework.RequestIdMiddleware = .{},

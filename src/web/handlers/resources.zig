@@ -249,6 +249,14 @@ pub fn metaCreate(ctx: *framework.Context, res: *framework.Response) !void {
     const cu = try authm.currentUser(ctx);
     const body = common.readJson(ResourceMetaBody, ctx) catch
         return ctx.failWith(framework.AppError.badRequest("请求体 JSON 无效"));
+    if (body.file_path.len == 0) {
+        try ctx.failWith(framework.AppError.badRequest("file_path 不能为空"));
+        return;
+    }
+    if (!std.mem.startsWith(u8, body.file_path, "uploads/")) {
+        try ctx.failWith(framework.AppError.badRequest("file_path 必须位于 uploads/ 下"));
+        return;
+    }
     if (!try validateMeta(ctx, st, &body)) return;
 
     const id = try resource_repo.create(
@@ -274,14 +282,8 @@ fn validateMeta(ctx: *framework.Context, st: *state.State, body: *const Resource
         try ctx.failWith(framework.AppError.badRequest("资料名需为 1-200 字符"));
         return false;
     }
-    if (body.file_path.len == 0) {
-        try ctx.failWith(framework.AppError.badRequest("file_path 不能为空"));
-        return false;
-    }
-    if (!std.mem.startsWith(u8, body.file_path, "uploads/")) {
-        try ctx.failWith(framework.AppError.badRequest("file_path 必须位于 uploads/ 下"));
-        return false;
-    }
+    // file_path 是 create-only 字段（update 不改动磁盘路径，且 ResourceView 不暴露它），
+    // 其非空/uploads/ 前缀校验由 metaCreate 自己把关，否则编辑接口永远 400。
     const ok_types = [_][]const u8{ "video", "audio", "pdf", "doc", "image", "markdown" };
     var found = false;
     for (ok_types) |t| {

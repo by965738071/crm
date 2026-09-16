@@ -1,0 +1,5 @@
+test
++- run test w
+[default] (warn): seed: created superadmin 'admin' (admin@example.com) with default password — 请尽快登录修改！
+failed command: ".\\.zig-cache\\o\\79eb0b6c169a82b7adbf2a7865f8cfde\\test.exe" "--cache-dir=.\\.zig-cache" --seed=0x75deb6ef --listen=-
+

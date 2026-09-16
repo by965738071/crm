@@ -1,0 +1,51 @@
+test
++- run test 31 pass, 2 fail (33 total)
+error: 'db.favorite_repo.test.favorite_repo add idempotent / remove / list filters soft-deleted targets' failed:
+       [default] (warn): seed: created superadmin 'admin' (admin@example.com) with default password — 请尽快登录修改！
+       F:\bxb\other\zig\crm\zig-pkg\zqlite-0.0.1-RWLaYz49nABcCXlOV690EXRLoexKyFDB9lCr5rsYfMQf\src\conn.zig:570:5: 0x7ff669a5478d in errorFromCode (test_zcu.obj)
+           return switch (result) {
+           ^
+       F:\bxb\other\zig\crm\zig-pkg\zqlite-0.0.1-RWLaYz49nABcCXlOV690EXRLoexKyFDB9lCr5rsYfMQf\src\conn.zig:71:13: 0x7ff6697f72b2 in prepare (test_zcu.obj)
+                   return errorFromCode(rc);
+                   ^
+       F:\bxb\other\zig\crm\zig-pkg\zqlite-0.0.1-RWLaYz49nABcCXlOV690EXRLoexKyFDB9lCr5rsYfMQf\src\conn.zig:119:22: 0x7ff66998509c in rows__func_2423 (test_zcu.obj)
+               const stmt = try self.prepare(sql);
+                            ^
+       F:\bxb\other\zig\crm\src\db\favorite_repo.zig:94:16: 0x7ff669985a35 in list (test_zcu.obj)
+           var rows = try dbh.conn.rows(
+                      ^
+       F:\bxb\other\zig\crm\src\db\favorite_repo.zig:167:13: 0x7ff669a666eb in test.favorite_repo add idempotent / remove / list filters soft-deleted targets (test_zcu.obj)
+           var r = try list(&dbh, a, 5, "", 1, 20);
+                   ^
+error: 'db.note_repo.test.note_repo create / update / list filters / owner isolation / soft delete' failed:
+       DBG note.getById prepare err: Error
+       SQL: SELECT n.id, n.course_id, n.lesson_id, n.content,
+              COALESCE(c.title, ''), COALESCE(l.title, ''), n.updated_at, n.created_atFROM notes n
+       LEFT JOIN courses c ON c.id = n.course_id
+       LEFT JOIN lessons l ON l.id = n.lesson_id WHERE n.id = ?1 AND n.user_id = ?2 AND n.deleted = 0 LIMIT 1
+       F:\bxb\other\zig\crm\zig-pkg\zqlite-0.0.1-RWLaYz49nABcCXlOV690EXRLoexKyFDB9lCr5rsYfMQf\src\conn.zig:570:5: 0x7ff669a5478d in errorFromCode (test_zcu.obj)
+           return switch (result) {
+           ^
+       F:\bxb\other\zig\crm\zig-pkg\zqlite-0.0.1-RWLaYz49nABcCXlOV690EXRLoexKyFDB9lCr5rsYfMQf\src\conn.zig:71:13: 0x7ff6697f72b2 in prepare (test_zcu.obj)
+                   return errorFromCode(rc);
+                   ^
+       F:\bxb\other\zig\crm\zig-pkg\zqlite-0.0.1-RWLaYz49nABcCXlOV690EXRLoexKyFDB9lCr5rsYfMQf\src\conn.zig:107:22: 0x7ff6698ceea5 in row__func_1826 (test_zcu.obj)
+               const stmt = try self.prepare(sql);
+                            ^
+       F:\bxb\other\zig\crm\src\db\note_repo.zig:61:9: 0x7ff66997af63 in getById (test_zcu.obj)
+               return err;
+               ^
+       F:\bxb\other\zig\crm\src\db\note_repo.zig:74:13: 0x7ff6699817b1 in create (test_zcu.obj)
+           return (try getById(dbh, a, dbh.lastInsertId(), user_id)) orelse return error.BrokenData;
+                   ^
+       F:\bxb\other\zig\crm\src\db\note_repo.zig:164:13: 0x7ff669a5bb1c in test.note_repo create / update / list filters / owner isolation / soft delete (test_zcu.obj)
+           var n = try create(&dbh, a, 5, 11, 31, "note one", 100);
+                   ^
+failed command: ".\\.zig-cache\\o\\ba655600ef2406d513470a32132fba64\\test.exe" "--cache-dir=.\\.zig-cache" --seed=0x5e928a3e --listen=-
+
+Build Summary: 5/7 steps succeeded (1 failed); 31/33 tests passed (2 failed)
+test transitive failure
++- run test 31 pass, 2 fail (33 total)
+
+error: the following build command exited with code 1:
+D:\zig-cache\o\d1e3dc5b3e7753681648a9ac84ee7477\maker.exe build --zig-lib=D:\Applications\Scoop\apps\zig-dev\0.17.0-dev.2131\lib --zig=D:\Applications\Scoop\apps\zig-dev\0.17.0-dev.2131\zig.exe --global-cache=D:\zig-cache --seed=0x5e928a3e test

@@ -1,1 +1,1 @@
-{"ok":true,"data":{"id":171,"category_id":77,"title":"p5 exam short","duration_min":30,"total_score":50,"pass_score":25,"rules":[{"type":"single","category_id":77,"count":5,"score_each":10}],"status":"published","created_at":1789465406,"question_count":5}}
+{"ok":true,"data":{"id":13,"title":"p7ann1789527877 A1","content":"alpha content","status":"draft","author_id":1,"published_at":0,"created_at":1789527882}}

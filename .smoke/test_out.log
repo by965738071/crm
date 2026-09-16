@@ -1,0 +1,4 @@
+info: to access the help menu: zig build -h
+error: unrecognized argument: --force
+error: the following build command exited with code 1:
+D:\zig-cache\o\d1e3dc5b3e7753681648a9ac84ee7477\maker.exe build --zig-lib=D:\Applications\Scoop\apps\zig-dev\0.17.0-dev.2131\lib --zig=D:\Applications\Scoop\apps\zig-dev\0.17.0-dev.2131\zig.exe --global-cache=D:\zig-cache --seed=0xad1fb8e1 test --summary all --force

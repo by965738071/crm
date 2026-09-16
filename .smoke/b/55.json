@@ -1,1 +1,1 @@
-{"ok":true,"data":{"id":169,"category_id":77,"title":"p5 exam one v2","duration_min":45,"total_score":20,"pass_score":10,"rules":[{"type":"single","category_id":77,"count":1,"score_each":10},{"type":"judge","category_id":77,"count":1,"score_each":10}],"status":"published","created_at":1789465405,"question_count":2}}
+target_id 必填且为正整数

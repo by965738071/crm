@@ -183,3 +183,56 @@ GET /api/practice/wrong (未登录) → 请先登录                          (C
 应用接受 text/plain 错误体，冒烟脚本对错误文案用 `grep` 断言（而非 JSON 解析）。能用，
 但前端阶段（第 8 期）要么写双格式解析器，要么回来定制渲染——不如框架提前留钩子。
 优先级建议 medium（不阻断功能，影响前端统一性）。
+
+---
+
+## Issue 5（设计限制）：拒绝 DELETE 携带 body（CL>0 直接 400），但未在文档/错误信息中说明
+
+**标题**：DELETE/GET 等方法携带 body 时协议层直接 400，前端「按 ID 取消收藏」类接口被迫改用 query 参数
+
+**环境**：http_framework 1.0.0（main 分支），Zig 0.17.0-dev.2131
+
+### 现象
+
+CRM 第 7 期「取消收藏」最初按常规 REST 设计为 `DELETE /api/favorites` + JSON body
+`{target_type,target_id}`。冒烟测试里 `curl -X DELETE -H 'Content-Type: application/json' -d '...'`
+恒定返回 **400 Bad Request**，handler 根本没被调用。
+
+定位在 `http_protocol/request.zig`：
+
+```zig
+// 不允许 body 的方法（GET/HEAD/DELETE/…，std requestHasBody 的口径）
+if (!head.method.requestHasBody()) {
+    if (head.transfer_encoding != .none) return error.ProtocolError;
+    if (head.content_length) |len| {
+        if (len > 0) return error.ProtocolError;
+    }
+}
+```
+
+std 的 `Method.requestHasBody()` 对 DELETE/GET/HEAD/TRACE/OPTIONS 返回 false，于是框架对
+「这些方法 + CL>0」一律拒收。意图是防请求走私（std 对无 body 方法返回恒空的 .ending reader，
+从不消费 body 字节，残留会污染下一个请求），思路本身成立；但落地方式有两个问题：
+
+1. **与生态惯例冲突**：RFC 9110 §8.3 明确 DELETE 语义与 body 相关（「request payload has
+   meaning for the semantics」），Elasticsearch、若干公开 API 都用 DELETE+body。
+   nginx 的常见做法是**收下请求、忽略 body**（或排空后丢弃），而不是协议错误。
+2. **不可发现**：400 响应无任何提示，开发者只会以为「我 body 写错了」。
+   框架文档（README 的中间件/body 章节）也没写过这条限制。
+
+### 期望
+
+任选其一：
+
+- **推荐**：对「方法不允许 body」的请求，若 CL>0，按 `min(CL, 某小上限)` **排空字节后丢弃**
+  （复用 ConnectionRunner 已有的 discard 路径），请求正常放行、body 为 `.none`。
+  既防走私又兼容现实客户端；
+- 或至少保持拒收，但把错误从裸 `ProtocolError` 换成带说明的 400（如
+  `DELETE/GET must not carry a request body`），并在 README「Request/Body」小节写明该方法白名单。
+
+### 当前 Workaround
+
+取消收藏改走 query 参数：`DELETE /api/favorites?target_type=course&target_id=1`，
+POST/PUT 类写接口仍用 JSON body。行为已在 `scripts/smoke_phase7.sh` 里固化为断言
+（「DELETE with body rejected 400」）。
+

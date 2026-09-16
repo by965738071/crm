@@ -1,0 +1,10 @@
+Build Summary: 7/7 steps succeeded
+test success
++- run test cached
+   +- compile test debug native cached 38ms MaxRSS:16M
+      +- WriteFile  cached
+      +- compile lib sqlite debug native cached 112ms MaxRSS:16M
+      +- compile lib sqlite debug native (reused)
+      +- translate-c cached 11ms MaxRSS:16M
+      +- options cached
+

@@ -1,61 +1,109 @@
 GET /api/health 200 {"ok":true,"data":{"status":"ok","uptime_seconds":0,"db":"sqlite","schema_version":1}}
 POST /api/auth/login 200 {"ok":true,"data":{"id":1,"email":"admin@example.com","username":"admin","nickname":"超级管理员","avatar":"","role"
-POST /api/admin/categories 200 {"ok":true,"data":{"id":77,"parent_id":1,"name":"p5catq1789465401","sort":0,"children":[]}}
-POST /api/admin/questions 200 {"ok":true,"data":{"id":137,"category_id":77,"course_id":0,"type":"single","stem":"p5 q single","options":["opA","opB","
-POST /api/admin/questions 200 {"ok":true,"data":{"id":138,"category_id":77,"course_id":0,"type":"judge","stem":"p5 q judge","options":[],"answer":"T",
-POST /api/admin/exams 400 各规则分值合计与总分不一致
-POST /api/admin/exams 400 status 仅支持 draft/published
-POST /api/admin/exams 400 抽题规则需 1-20 条
-POST /api/admin/exams 400 抽题规则引用的分类 999999 不存在
-POST /api/admin/exams 400 抽题规则字段非法（分类需存在、count 1-100、score_each 1-100、type 为空或 single/multi/judge）
-POST /api/admin/exams 400 分类不存在
-POST /api/admin/exams 400 试卷标题不能为空且最长 128 字符
-POST /api/admin/exams 200 {"ok":true,"data":{"id":169,"category_id":77,"title":"p5 exam one","duration_min":30,"total_score":20,"pass_score":10,"r
-POST /api/admin/exams 200 {"ok":true,"data":{"id":170,"category_id":77,"title":"p5 exam draft","duration_min":20,"total_score":20,"pass_score":10,
-POST /api/admin/exams 200 {"ok":true,"data":{"id":171,"category_id":77,"title":"p5 exam short","duration_min":30,"total_score":50,"pass_score":25,
-GET /api/admin/exams?category_id=77 200 {"ok":true,"data":{"items":[{"id":171,"category_id":77,"title":"p5 exam short","duration_min":30,"total_score":50,"pass_
-GET /api/admin/exams?status=draft&category_id=77 200 {"ok":true,"data":{"items":[{"id":170,"category_id":77,"title":"p5 exam draft","duration_min":20,"total_score":20,"pass_
-GET /api/admin/exams?keyword=exam%20one 200 {"ok":true,"data":{"items":[{"id":169,"category_id":77,"title":"p5 exam one","duration_min":30,"total_score":20,"pass_sc
-GET /api/admin/exams/169 200 {"ok":true,"data":{"id":169,"category_id":77,"title":"p5 exam one","duration_min":30,"total_score":20,"pass_score":10,"r
-GET /api/admin/exams/999999 404 试卷不存在
-GET /api/exams 401 请先登录
-POST /api/exams/169/start 401 请先登录
-POST /api/exam-attempts/1/submit 401 请先登录
-POST /api/auth/register 200 {"ok":true,"data":{"id":122,"email":"p5stu1789465401@ex.com","username":"p5stu1789465401","nickname":"p5stu1789465401","
-POST /api/auth/login 200 {"ok":true,"data":{"id":122,"email":"p5stu1789465401@ex.com","username":"p5stu1789465401","nickname":"p5stu1789465401","
-GET /api/exams?category_id=77 200 {"ok":true,"data":{"items":[{"exam":{"id":171,"category_id":77,"title":"p5 exam short","duration_min":30,"total_score":5
-POST /api/exams/170/start 404 试卷不存在
-POST /api/exams/999999/start 404 试卷不存在
-POST /api/exams/171/start 400 题池不足：分类 77 题型 single 需 5 题，仅有 1
-POST /api/exams/169/start 200 {"ok":true,"data":{"resumed":false,"attempt_id":162,"exam":{"id":169,"title":"p5 exam one","duration_min":30,"total_scor
-POST /api/exam-attempts/162/answer 200 {"ok":true,"data":{"status":"ok","saved":2}}
-POST /api/exams/169/start 200 {"ok":true,"data":{"resumed":true,"attempt_id":162,"exam":{"id":169,"title":"p5 exam one","duration_min":30,"total_score
-POST /api/exam-attempts/999999/answer 404 考试记录不存在
-POST /api/exam-attempts/162/submit 200 {"ok":true,"data":{"score":20,"total_score":20,"pass_score":10,"passed":true,"correct_count":2,"total_count":2,"submitte
-POST /api/exam-attempts/162/submit 400 已交卷
-POST /api/exam-attempts/162/answer 400 已交卷，不可再修改作答
-POST /api/exams/169/start 200 {"ok":true,"data":{"resumed":false,"attempt_id":163,"exam":{"id":169,"title":"p5 exam one","duration_min":30,"total_scor
-POST /api/exam-attempts/163/submit 200 {"ok":true,"data":{"score":0,"total_score":20,"pass_score":10,"passed":false,"correct_count":0,"total_count":2,"submitte
-POST /api/exams/169/start 200 {"ok":true,"data":{"resumed":false,"attempt_id":164,"exam":{"id":169,"title":"p5 exam one","duration_min":30,"total_scor
-GET /api/exam-attempts/164 400 尚未交卷，无法回顾
-POST /api/exam-attempts/164/submit 200 {"ok":true,"data":{"score":0,"total_score":20,"pass_score":10,"passed":false,"correct_count":0,"total_count":2,"submitte
-GET /api/exam-attempts/162 200 {"ok":true,"data":{"attempt_id":162,"exam_id":169,"exam_title":"p5 exam one","score":20,"total_score":20,"pass_score":10
-GET /api/exam-attempts/163 200 {"ok":true,"data":{"attempt_id":163,"exam_id":169,"exam_title":"p5 exam one","score":0,"total_score":20,"pass_score":10,
-GET /api/exam-attempts/999999 404 考试记录不存在
-GET /api/practice/wrong?mastered=0 200 {"ok":true,"data":{"items":[{"id":66,"wrong_count":1,"mastered":0,"last_wrong_at":1789465415,"question":{"id":137,"categ
-GET /api/exam-attempts?exam_id=169 200 {"ok":true,"data":{"items":[{"id":164,"exam_id":169,"exam_title":"p5 exam one","score":0,"passed":0,"question_count":2,"
-GET /api/exam-attempts?exam_id=999999 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
-GET /api/exams?category_id=77 200 {"ok":true,"data":{"items":[{"exam":{"id":171,"category_id":77,"title":"p5 exam short","duration_min":30,"total_score":5
-POST /api/auth/register 200 {"ok":true,"data":{"id":123,"email":"p5stuB1789465401@ex.com","username":"p5stuB1789465401","nickname":"p5stuB1789465401
-POST /api/auth/login 200 {"ok":true,"data":{"id":123,"email":"p5stuB1789465401@ex.com","username":"p5stuB1789465401","nickname":"p5stuB1789465401
-GET /api/exam-attempts/162 404 考试记录不存在
-POST /api/exam-attempts/162/submit 404 考试记录不存在
-POST /api/exam-attempts/162/answer 404 考试记录不存在
-PUT /api/admin/exams/169 400 各规则分值合计与总分不一致
-PUT /api/admin/exams/169 200 {"ok":true,"data":{"id":169,"category_id":77,"title":"p5 exam one v2","duration_min":45,"total_score":20,"pass_score":10
-PUT /api/admin/exams/999999 404 试卷不存在
-DELETE /api/admin/exams/169 200 {"ok":true,"data":{"status":"ok"}}
-POST /api/exams/169/start 404 试卷不存在
-GET /api/exam-attempts/162 200 {"ok":true,"data":{"attempt_id":162,"exam_id":169,"exam_title":"p5 exam one v2","score":20,"total_score":20,"pass_score"
-GET /api/admin/exams?category_id=77 200 {"ok":true,"data":{"items":[{"id":171,"category_id":77,"title":"p5 exam short","duration_min":30,"total_score":50,"pass_
-DELETE /api/admin/exams/169 404 试卷不存在
+POST /api/auth/register 200 {"ok":true,"data":{"id":147,"email":"p7stu1789527877@ex.com","username":"p7stu1789527877","nickname":"p7stu1789527877","
+POST /api/auth/register 200 {"ok":true,"data":{"id":148,"email":"p7stuB1789527877@ex.com","username":"p7stuB1789527877","nickname":"p7stuB1789527877
+POST /api/auth/login 200 {"ok":true,"data":{"id":147,"email":"p7stu1789527877@ex.com","username":"p7stu1789527877","nickname":"p7stu1789527877","
+POST /api/auth/login 200 {"ok":true,"data":{"id":148,"email":"p7stuB1789527877@ex.com","username":"p7stuB1789527877","nickname":"p7stuB1789527877
+POST /api/admin/courses 200 {"ok":true,"data":{"id":45,"category_id":1,"title":"p7c11789527877","cover":"","summary":"","description":"","price":990
+POST /api/admin/courses 200 {"ok":true,"data":{"id":46,"category_id":1,"title":"p7c21789527877","cover":"","summary":"","description":"","price":100
+POST /api/admin/courses 200 {"ok":true,"data":{"id":47,"category_id":1,"title":"p7c31789527877","cover":"","summary":"","description":"","price":0,"
+POST /api/admin/chapters 200 {"ok":true,"data":{"id":19,"course_id":45,"title":"p7 ch1","sort":1,"lessons":[]}}
+POST /api/admin/lessons 200 {"ok":true,"data":{"id":21,"course_id":45,"chapter_id":19,"title":"p7 lesson1","content_type":"video","resource_id":0,"c
+POST /api/admin/chapters 200 {"ok":true,"data":{"id":20,"course_id":47,"title":"p7 ch3","sort":1,"lessons":[]}}
+POST /api/admin/lessons 200 {"ok":true,"data":{"id":22,"course_id":47,"chapter_id":20,"title":"p7 lesson3","content_type":"video","resource_id":0,"c
+POST /api/admin/resources 200 {"ok":true,"data":{"id":10,"category_id":1,"name":"p7r11789527877","orig_name":"p7.txt","rtype":"doc","size":4,"mime":"t
+POST /api/admin/announcements 200 {"ok":true,"data":{"id":13,"title":"p7ann1789527877 A1","content":"alpha content","status":"draft","author_id":1,"publis
+GET /api/announcements?keyword=p7ann1789527877 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":10}}
+GET /api/announcements/13 404 公告不存在
+GET /api/announcements/13 404 公告不存在
+POST /api/admin/announcements/13/publish 200 {"ok":true,"data":{"id":13,"title":"p7ann1789527877 A1","content":"alpha content","status":"published","author_id":1,"pu
+POST /api/admin/announcements/13/publish 400 该公告已发布
+GET /api/announcements?keyword=p7ann1789527877 200 {"ok":true,"data":{"items":[{"id":13,"title":"p7ann1789527877 A1","content":"alpha content","status":"published","author
+GET /api/announcements/13 200 {"ok":true,"data":{"id":13,"title":"p7ann1789527877 A1","content":"alpha content","status":"published","author_id":1,"pu
+PUT /api/admin/announcements/13 200 {"ok":true,"data":{"id":13,"title":"p7ann1789527877 A1v2","content":"beta content","status":"published","author_id":1,"p
+POST /api/admin/announcements/13/unpublish 200 {"ok":true,"data":{"id":13,"title":"p7ann1789527877 A1v2","content":"beta content","status":"draft","author_id":1,"publi
+GET /api/announcements?keyword=p7ann1789527877 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":10}}
+POST /api/admin/announcements/13/unpublish 400 该公告尚未发布
+POST /api/admin/announcements/13/publish 200 {"ok":true,"data":{"id":13,"title":"p7ann1789527877 A1v2","content":"beta content","status":"published","author_id":1,"p
+POST /api/admin/announcements 200 {"ok":true,"data":{"id":14,"title":"p7ann1789527877 A2","content":"zz bodykwtst1789527877 zz","status":"draft","author_i
+GET /api/admin/announcements?status=draft&keyword=p7ann1789527877 200 {"ok":true,"data":{"items":[{"id":14,"title":"p7ann1789527877 A2","content":"zz bodykwtst1789527877 zz","status":"draft"
+GET /api/admin/announcements?keyword=p7ann1789527877 200 {"ok":true,"data":{"items":[{"id":13,"title":"p7ann1789527877 A1v2","content":"beta content","status":"published","autho
+GET /api/announcements?keyword=bodykwtst1789527877 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":10}}
+POST /api/admin/announcements/14/publish 200 {"ok":true,"data":{"id":14,"title":"p7ann1789527877 A2","content":"zz bodykwtst1789527877 zz","status":"published","auth
+GET /api/announcements?keyword=bodykwtst1789527877 200 {"ok":true,"data":{"items":[{"id":14,"title":"p7ann1789527877 A2","content":"zz bodykwtst1789527877 zz","status":"publis
+GET /api/admin/announcements/14 200 {"ok":true,"data":{"id":14,"title":"p7ann1789527877 A2","content":"zz bodykwtst1789527877 zz","status":"published","auth
+GET /api/admin/announcements?status=bogus 400 status 仅支持 draft/published
+GET /api/admin/announcements 403 需要管理员权限
+GET /api/admin/announcements 401 请先登录
+GET /api/announcements 200 {"ok":true,"data":{"items":[{"id":14,"title":"p7ann1789527877 A2","content":"zz bodykwtst1789527877 zz","status":"publis
+POST /api/admin/announcements 400 标题必填，最长 128 字符
+DELETE /api/admin/announcements/13 200 {"ok":true,"data":{"deleted":true}}
+GET /api/announcements/13 404 公告不存在
+GET /api/admin/announcements/13 404 公告不存在
+PUT /api/admin/announcements/13 404 公告不存在
+POST /api/admin/announcements/13/publish 404 公告不存在
+DELETE /api/admin/announcements/13 404 公告不存在
+POST /api/favorites 200 {"ok":true,"data":{"favorited":true}}
+POST /api/favorites 200 {"ok":true,"data":{"favorited":true}}
+GET /api/favorites 200 {"ok":true,"data":{"items":[{"id":25,"target_type":"course","target_id":45,"title":"p7c11789527877","cover":"","price":9
+POST /api/favorites 200 {"ok":true,"data":{"favorited":true}}
+GET /api/favorites 200 {"ok":true,"data":{"items":[{"id":27,"target_type":"resource","target_id":10,"title":"p7r11789527877","cover":"","price"
+GET /api/favorites?target_type=course 200 {"ok":true,"data":{"items":[{"id":25,"target_type":"course","target_id":45,"title":"p7c11789527877","cover":"","price":9
+GET /api/favorites?target_type=resource 200 {"ok":true,"data":{"items":[{"id":27,"target_type":"resource","target_id":10,"title":"p7r11789527877","cover":"","price"
+POST /api/favorites 400 target_type 仅支持 course/resource
+DELETE /api/favorites?target_type=bogus&target_id=1 400 target_type 仅支持 course/resource
+DELETE /api/favorites?target_type=course&target_id=abc 400 target_id 必填且为正整数
+POST /api/favorites 404 课程不存在
+POST /api/favorites 404 资料不存在
+GET /api/favorites?target_type=bogus 400 target_type 仅支持 course/resource
+POST /api/favorites 401 请先登录
+DELETE /api/favorites 400 Bad Request
+DELETE /api/favorites?target_type=course&target_id=45 200 {"ok":true,"data":{"removed":true}}
+GET /api/favorites 200 {"ok":true,"data":{"items":[{"id":27,"target_type":"resource","target_id":10,"title":"p7r11789527877","cover":"","price"
+DELETE /api/favorites?target_type=course&target_id=45 404 未收藏该对象
+DELETE /api/favorites?target_type=resource&target_id=10 404 未收藏该对象
+GET /api/favorites 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+POST /api/favorites 200 {"ok":true,"data":{"favorited":true}}
+GET /api/favorites 200 {"ok":true,"data":{"items":[{"id":28,"target_type":"course","target_id":46,"title":"p7c21789527877","cover":"","price":1
+DELETE /api/admin/courses/46 200 {"ok":true,"data":{"status":"ok"}}
+GET /api/favorites 200 {"ok":true,"data":{"items":[{"id":27,"target_type":"resource","target_id":10,"title":"p7r11789527877","cover":"","price"
+DELETE /api/favorites?target_type=resource&target_id=10 200 {"ok":true,"data":{"removed":true}}
+GET /api/favorites 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+POST /api/notes 200 {"ok":true,"data":{"id":19,"course_id":45,"lesson_id":21,"content":"p7note one","course_title":"p7c11789527877","lesson_
+POST /api/notes 400 笔记内容不能为空
+POST /api/notes 404 课程不存在
+POST /api/notes 400 course_id 必填且为正整数
+POST /api/notes 400 课时不属于该课程
+POST /api/notes 404 课时不存在
+POST /api/notes 200 {"ok":true,"data":{"id":20,"course_id":47,"lesson_id":22,"content":"p7note lesson3","course_title":"p7c31789527877","les
+POST /api/notes 200 {"ok":true,"data":{"id":21,"course_id":45,"lesson_id":0,"content":"p7note course level","course_title":"p7c11789527877",
+POST /api/notes 401 请先登录
+GET /api/notes?course_id=45 200 {"ok":true,"data":{"items":[{"id":21,"course_id":45,"lesson_id":0,"content":"p7note course level","course_title":"p7c117
+GET /api/notes?lesson_id=21 200 {"ok":true,"data":{"items":[{"id":19,"course_id":45,"lesson_id":21,"content":"p7note one","course_title":"p7c11789527877
+GET /api/notes 200 {"ok":true,"data":{"items":[{"id":21,"course_id":45,"lesson_id":0,"content":"p7note course level","course_title":"p7c117
+GET /api/notes 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+PUT /api/notes/19 200 {"ok":true,"data":{"id":19,"course_id":45,"lesson_id":21,"content":"p7note one v2","course_title":"p7c11789527877","less
+PUT /api/notes/999999 404 笔记不存在
+PUT /api/notes/19 404 笔记不存在
+PUT /api/notes/19 400 笔记内容不能为空
+DELETE /api/notes/20 404 笔记不存在
+DELETE /api/notes/20 200 {"ok":true,"data":{"deleted":true}}
+DELETE /api/notes/20 404 笔记不存在
+GET /api/notes?course_id=47 200 {"ok":true,"data":{"items":[],"total":0,"page":1,"size":20}}
+GET /api/admin/stats 401 请先登录
+GET /api/admin/stats 403 需要管理员权限
+GET /api/admin/stats 200 {"ok":true,"data":{"users":148,"courses":35,"questions":136,"orders_pending":4,"users_today":23,"users_7d":148}}
+POST /api/auth/register 200 {"ok":true,"data":{"id":149,"email":"p7stuC1789527877@ex.com","username":"p7stuC1789527877","nickname":"p7stuC1789527877
+GET /api/admin/stats 200 {"ok":true,"data":{"users":149,"courses":35,"questions":136,"orders_pending":4,"users_today":24,"users_7d":149}}
+POST /api/admin/questions 200 {"ok":true,"data":{"id":147,"category_id":1,"course_id":0,"type":"single","stem":"p7 stat q","options":["a","b"],"answer
+GET /api/admin/stats 200 {"ok":true,"data":{"users":149,"courses":35,"questions":137,"orders_pending":4,"users_today":24,"users_7d":149}}
+DELETE /api/admin/questions/147 200 {"ok":true,"data":{"status":"ok"}}
+GET /api/admin/stats 200 {"ok":true,"data":{"users":149,"courses":35,"questions":136,"orders_pending":4,"users_today":24,"users_7d":149}}
+POST /api/admin/courses 200 {"ok":true,"data":{"id":48,"category_id":1,"title":"p7cst1789527877","cover":"","summary":"","description":"","price":0,
+GET /api/admin/stats 200 {"ok":true,"data":{"users":149,"courses":36,"questions":136,"orders_pending":4,"users_today":24,"users_7d":149}}
+DELETE /api/admin/courses/48 200 {"ok":true,"data":{"status":"ok"}}
+GET /api/admin/stats 200 {"ok":true,"data":{"users":149,"courses":35,"questions":136,"orders_pending":4,"users_today":24,"users_7d":149}}
+POST /api/admin/orders 200 {"ok":true,"data":{"id":18,"order_no":"O1789527911-19","user_id":149,"course_id":45,"amount":9900,"status":"pending","pa
+GET /api/admin/stats 200 {"ok":true,"data":{"users":149,"courses":35,"questions":136,"orders_pending":5,"users_today":24,"users_7d":149}}
+POST /api/admin/orders/18/cancel 200 {"ok":true,"data":{"id":18,"order_no":"O1789527911-19","user_id":149,"course_id":45,"amount":9900,"status":"cancelled","
+GET /api/admin/stats 200 {"ok":true,"data":{"users":149,"courses":35,"questions":136,"orders_pending":4,"users_today":24,"users_7d":149}}

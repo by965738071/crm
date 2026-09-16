@@ -1,0 +1,74 @@
+1/33 root.test_0...OK
+2/33 db.migrate.test.migrate creates schema and idempotent seed...[default] (warn): seed: created superadmin 'admin' (admin@example.com) with default password — 请尽快登录修改！
+OK
+3/33 db.user_repo.test.user_repo create/get/update/list...OK
+4/33 db.category_repo.test.category_repo create/get/update/findAll/delete...OK
+5/33 db.course_repo.test.course_repo courses/chapters/lessons lifecycle...OK
+6/33 db.resource_repo.test.resource_repo lifecycle + filters...OK
+7/33 db.learning_repo.test.utcDate civil boundaries...OK
+8/33 db.learning_repo.test.validProgressStatus...OK
+9/33 db.learning_repo.test.learning_repo enroll / progress / study log / my list...OK
+10/33 db.question_repo.test.validateQuestion single/multi/judge...OK
+11/33 db.question_repo.test.checkAnswer grading...OK
+12/33 db.question_repo.test.encodeOptions/decodeOptions round-trip...OK
+13/33 db.question_repo.test.parseCsv...OK
+14/33 db.question_repo.test.question_repo CRUD / list / draw...OK
+15/33 db.practice_repo.test.validSource...OK
+16/33 db.practice_repo.test.practice_repo wrong book / master / favorites...OK
+17/33 db.exam_repo.test.validateExam 规则与分值一致性...OK
+18/33 db.exam_repo.test.rules / snapshot / answers JSON round-trip...OK
+19/33 db.exam_repo.test.gradeAnswer...OK
+20/33 db.exam_repo.test.drawSnapshot 池校验 / 同桶去重 / 顺序...OK
+21/33 db.exam_repo.test.试卷 CRUD / 考试全流程（交卷判分 + 流水 + 错题本 + 重复交卷）...OK
+22/33 db.order_repo.test.order_repo proxy order / pay / cancel state machine and enrollment linkage...OK
+23/33 db.order_repo.test_0...OK
+24/33 db.announcement_repo.test.announcement_repo create / publish / unpublish / list / delete...OK
+25/33 db.announcement_repo.test_0...OK
+26/33 db.favorite_repo.test.favorite_repo add idempotent / remove / list filters soft-deleted targets...FAIL (Error)
+F:\bxb\other\zig\crm\zig-pkg\zqlite-0.0.1-RWLaYz49nABcCXlOV690EXRLoexKyFDB9lCr5rsYfMQf\src\conn.zig:570:5: 0x7ff61efc478d in errorFromCode (test_zcu.obj)
+    return switch (result) {
+    ^
+F:\bxb\other\zig\crm\zig-pkg\zqlite-0.0.1-RWLaYz49nABcCXlOV690EXRLoexKyFDB9lCr5rsYfMQf\src\conn.zig:71:13: 0x7ff61ed672b2 in prepare (test_zcu.obj)
+            return errorFromCode(rc);
+            ^
+F:\bxb\other\zig\crm\zig-pkg\zqlite-0.0.1-RWLaYz49nABcCXlOV690EXRLoexKyFDB9lCr5rsYfMQf\src\conn.zig:119:22: 0x7ff61eef509c in rows__func_2423 (test_zcu.obj)
+        const stmt = try self.prepare(sql);
+                     ^
+F:\bxb\other\zig\crm\src\db\favorite_repo.zig:94:16: 0x7ff61eef5a35 in list (test_zcu.obj)
+    var rows = try dbh.conn.rows(
+               ^
+F:\bxb\other\zig\crm\src\db\favorite_repo.zig:167:13: 0x7ff61efd66eb in test.favorite_repo add idempotent / remove / list filters soft-deleted targets (test_zcu.obj)
+    var r = try list(&dbh, a, 5, "", 1, 20);
+            ^
+27/33 db.favorite_repo.test_0...OK
+28/33 db.note_repo.test.note_repo create / update / list filters / owner isolation / soft delete...
+DBG note.getById prepare err: Error
+SQL: SELECT n.id, n.course_id, n.lesson_id, n.content,
+       COALESCE(c.title, ''), COALESCE(l.title, ''), n.updated_at, n.created_atFROM notes n
+LEFT JOIN courses c ON c.id = n.course_id
+LEFT JOIN lessons l ON l.id = n.lesson_id WHERE n.id = ?1 AND n.user_id = ?2 AND n.deleted = 0 LIMIT 1
+FAIL (Error)
+F:\bxb\other\zig\crm\zig-pkg\zqlite-0.0.1-RWLaYz49nABcCXlOV690EXRLoexKyFDB9lCr5rsYfMQf\src\conn.zig:570:5: 0x7ff61efc478d in errorFromCode (test_zcu.obj)
+    return switch (result) {
+    ^
+F:\bxb\other\zig\crm\zig-pkg\zqlite-0.0.1-RWLaYz49nABcCXlOV690EXRLoexKyFDB9lCr5rsYfMQf\src\conn.zig:71:13: 0x7ff61ed672b2 in prepare (test_zcu.obj)
+            return errorFromCode(rc);
+            ^
+F:\bxb\other\zig\crm\zig-pkg\zqlite-0.0.1-RWLaYz49nABcCXlOV690EXRLoexKyFDB9lCr5rsYfMQf\src\conn.zig:107:22: 0x7ff61ee3eea5 in row__func_1826 (test_zcu.obj)
+        const stmt = try self.prepare(sql);
+                     ^
+F:\bxb\other\zig\crm\src\db\note_repo.zig:61:9: 0x7ff61eeeaf63 in getById (test_zcu.obj)
+        return err;
+        ^
+F:\bxb\other\zig\crm\src\db\note_repo.zig:74:13: 0x7ff61eef17b1 in create (test_zcu.obj)
+    return (try getById(dbh, a, dbh.lastInsertId(), user_id)) orelse return error.BrokenData;
+            ^
+F:\bxb\other\zig\crm\src\db\note_repo.zig:164:13: 0x7ff61efcbb1c in test.note_repo create / update / list filters / owner isolation / soft delete (test_zcu.obj)
+    var n = try create(&dbh, a, 5, 11, 31, "note one", 100);
+            ^
+29/33 db.note_repo.test_0...OK
+30/33 db.stats_repo.test.stats_repo overview counts with UTC-day windows...OK
+31/33 db.stats_repo.test_0...OK
+32/33 svc.identity.test.hashPassword/verifyPassword...OK
+33/33 svc.identity.test.LoginGuard locks after 5 failures and unlocks...OK
+31 passed; 0 skipped; 2 failed.

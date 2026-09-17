@@ -28,6 +28,8 @@ pub const ListResult = struct {
     total: i64,
 };
 
+// 列清单手写：n. 表前缀 + COALESCE 出的 course_title/lesson_title 展示字段，
+// 超出裸列映射约束，无法用 colref.cols 反射
 const note_cols =
     \\SELECT n.id, n.course_id, n.lesson_id, n.content,
     \\       COALESCE(c.title, ''), COALESCE(l.title, ''), n.updated_at, n.created_at

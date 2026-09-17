@@ -4,6 +4,7 @@
 const std = @import("std");
 const zqlite = @import("zqlite");
 const db = @import("db.zig");
+const colref = @import("colref.zig");
 
 pub const Category = struct {
     id: i64,
@@ -13,7 +14,8 @@ pub const Category = struct {
     deleted: i64,
 };
 
-const select_cols = "id, parent_id, name, sort, deleted";
+// 列清单由 Category struct 编译期生成，避免手写串与字段漂移
+const select_cols = colref.cols(Category);
 
 fn rowToCategory(row: zqlite.Row, a: std.mem.Allocator) !Category {
     return .{

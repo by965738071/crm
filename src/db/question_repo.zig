@@ -13,6 +13,7 @@ const std = @import("std");
 const zqlite = @import("zqlite");
 const db = @import("db.zig");
 const course_repo = @import("course_repo.zig");
+const colref = @import("colref.zig");
 
 pub const valid_types = [_][]const u8{ "single", "multi", "judge" };
 
@@ -49,7 +50,7 @@ pub const PracticeQuestion = struct {
     options: []const []const u8,
 };
 
-const question_cols = "id, category_id, course_id, type, stem, options, answer, explanation, difficulty, used_count";
+const question_cols = colref.cols(Question);
 
 // ---------------------------------------------------------------- 校验 / 规范化
 

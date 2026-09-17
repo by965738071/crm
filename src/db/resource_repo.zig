@@ -27,6 +27,7 @@ pub const ResourceListOpts = struct {
     keyword: []const u8 = "",
 };
 
+// 列清单手写：Resource.rtype ↔ resources.type 字段名与列名不一致，无法用 colref.cols 反射
 const select_cols = "id, category_id, name, orig_name, type, file_path, size, mime, uploader_id, is_public, created_at";
 
 fn rowToResource(row: zqlite.Row, a: std.mem.Allocator) !Resource {

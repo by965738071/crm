@@ -11,6 +11,8 @@ export default defineConfig({
     proxy: {
       // 开发期把 /api 代理到本地 crm 服务（cookie 同源直传）
       '/api': 'http://127.0.0.1:8080',
+      // 题目图片等上传文件同样由后端 data/uploads 提供；不加则 dev 下 <img> 走 5173 → 404
+      '/uploads': 'http://127.0.0.1:8080',
     },
   },
   build: {

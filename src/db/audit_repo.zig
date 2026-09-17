@@ -10,13 +10,14 @@ pub const AuditLogRepo = struct {
         return .{ .dbh = dbh };
     }
 
-    /// 记录审计日志（请求摘要由中间件构造，包含方法+路径+状态码简要信息）
-    pub fn log(self: *AuditLogRepo, allocator: std.mem.Allocator, io: std.Io, user_id: i64, action: []const u8, target_type: []const u8, target_id: i64, request_summary: []const u8, ip: []const u8) !void {
+    /// 记录审计日志（请求摘要由中间件构造，含方法+路径+状态码）
+    /// query 为原始请求参数（不含 '?'），status 为响应状态码（出错时为 0）。
+    pub fn log(self: *AuditLogRepo, allocator: std.mem.Allocator, io: std.Io, user_id: i64, action: []const u8, target_type: []const u8, target_id: i64, request_summary: []const u8, query: []const u8, status: i64, ip: []const u8) !void {
         _ = allocator;
         const now: i64 = @intCast(@divTrunc(std.Io.Timestamp.now(io, .real).nanoseconds, std.time.ns_per_s));
         try self.dbh.exec(
-            "INSERT INTO audit_logs (user_id, action, target_type, target_id, request_summary, ip, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            .{ user_id, action, target_type, target_id, request_summary, ip, now },
+            "INSERT INTO audit_logs (user_id, action, target_type, target_id, request_summary, query, status, ip, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            .{ user_id, action, target_type, target_id, request_summary, query, status, ip, now },
         );
     }
 
@@ -30,7 +31,7 @@ pub const AuditLogRepo = struct {
 
         var items: std.ArrayList(AuditLogRow) = .empty;
         var rows = try self.dbh.conn.rows(
-            "SELECT id, user_id, action, target_type, target_id, request_summary, ip, created_at FROM audit_logs WHERE (?1 <= 0 OR user_id = ?1) ORDER BY id DESC LIMIT ?2 OFFSET ?3",
+            "SELECT id, user_id, action, target_type, target_id, request_summary, query, status, ip, created_at FROM audit_logs WHERE (?1 <= 0 OR user_id = ?1) ORDER BY id DESC LIMIT ?2 OFFSET ?3",
             .{ user_id, limit, offset },
         );
         defer rows.deinit();
@@ -42,8 +43,10 @@ pub const AuditLogRepo = struct {
                 .target_type = try a.dupe(u8, row.text(3)),
                 .target_id = row.int(4),
                 .request_summary = try a.dupe(u8, row.text(5)),
-                .ip = try a.dupe(u8, row.text(6)),
-                .created_at = row.int(7),
+                .query = try a.dupe(u8, row.text(6)),
+                .status = row.int(7),
+                .ip = try a.dupe(u8, row.text(8)),
+                .created_at = row.int(9),
             });
         }
         if (rows.err) |e| return e;
@@ -63,6 +66,8 @@ pub const AuditLogRow = struct {
     target_type: []const u8,
     target_id: i64,
     request_summary: []const u8,
+    query: []const u8,
+    status: i64,
     ip: []const u8,
     created_at: i64,
 };
@@ -77,6 +82,8 @@ const audit_logs_ddl =
     \\  target_type TEXT NOT NULL DEFAULT '',
     \\  target_id INTEGER NOT NULL DEFAULT 0,
     \\  request_summary TEXT NOT NULL DEFAULT '',
+    \\  query TEXT NOT NULL DEFAULT '',
+    \\  status INTEGER NOT NULL DEFAULT 0,
     \\  ip TEXT NOT NULL DEFAULT '',
     \\  created_at INTEGER NOT NULL
     \\)
@@ -102,9 +109,9 @@ test "audit_repo log + list with user filter and pagination" {
     defer dbh.close();
     var repo = AuditLogRepo.init(&dbh);
 
-    try repo.log(a, std.testing.io, 1, "request", "request", 0, "GET /api/health -> 200", "127.0.0.1");
-    try repo.log(a, std.testing.io, 1, "request", "request", 0, "POST /api/auth/login -> 200", "127.0.0.1");
-    try repo.log(a, std.testing.io, 2, "request", "request", 0, "GET /api/courses -> 200", "10.0.0.2");
+    try repo.log(a, std.testing.io, 1, "request", "request", 0, "GET /api/health -> 200", "", 200, "127.0.0.1");
+    try repo.log(a, std.testing.io, 1, "request", "request", 0, "POST /api/auth/login -> 200", "", 200, "127.0.0.1");
+    try repo.log(a, std.testing.io, 2, "request", "request", 0, "GET /api/courses -> 200", "category_id=3&sub=1", 200, "10.0.0.2");
 
     {
         var r = try repo.list(a, 1, 50, 0);
@@ -118,6 +125,10 @@ test "audit_repo log + list with user filter and pagination" {
         defer r.items.deinit(a);
         try std.testing.expectEqual(@as(i64, 3), r.total);
         try std.testing.expectEqual(@as(usize, 3), r.items.items.len);
+        // query/status 字段正确回读（id DESC，最新一条在前）
+        try std.testing.expectEqualStrings("category_id=3&sub=1", r.items.items[0].query);
+        try std.testing.expectEqual(@as(i64, 200), r.items.items[0].status);
+        try std.testing.expectEqual(@as(i64, 2), r.items.items[0].user_id);
     }
     {
         // 分页（limit 1）按 id DESC 返回最新一条（user 2）

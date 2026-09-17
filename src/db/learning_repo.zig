@@ -10,6 +10,7 @@ const std = @import("std");
 const zqlite = @import("zqlite");
 const db = @import("db.zig");
 const course_repo = @import("course_repo.zig");
+const colref = @import("colref.zig");
 
 // ---------------------------------------------------------------- 报名
 
@@ -108,7 +109,7 @@ pub const Progress = struct {
     updated_at: i64,
 };
 
-const progress_cols = "id, lesson_id, course_id, status, position, updated_at";
+const progress_cols = colref.cols(Progress);
 
 fn rowToProgress(row: zqlite.Row, a: std.mem.Allocator) !Progress {
     return .{

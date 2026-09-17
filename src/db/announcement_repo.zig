@@ -7,6 +7,7 @@
 const std = @import("std");
 const zqlite = @import("zqlite");
 const db = @import("db.zig");
+const colref = @import("colref.zig");
 
 pub const statuses = [_][]const u8{ "draft", "published" };
 pub const max_title_len = 128;
@@ -30,7 +31,8 @@ pub const Announcement = struct {
     created_at: i64,
 };
 
-const ann_cols = "id, title, content, status, author_id, published_at, created_at";
+// 列清单由 Announcement struct 编译期生成，避免手写串与字段漂移
+const ann_cols = colref.cols(Announcement);
 
 fn rowToAnnouncement(row: zqlite.Row, a: std.mem.Allocator) !Announcement {
     return .{

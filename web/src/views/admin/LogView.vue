@@ -64,7 +64,22 @@ onMounted(load)
           <el-tag size="small" type="info">{{ row.action }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="request_summary" label="请求摘要" min-width="260" show-overflow-tooltip />
+      <el-table-column prop="request_summary" label="请求摘要" min-width="240" show-overflow-tooltip />
+      <el-table-column prop="query" label="请求参数" min-width="180" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span v-if="row.query">?{{ row.query }}</span>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="状态" width="80" align="center">
+        <template #default="{ row }">
+          <el-tag v-if="row.status" size="small"
+            :type="row.status < 300 ? 'success' : row.status < 500 ? 'warning' : 'danger'">
+            {{ row.status }}
+          </el-tag>
+          <el-tag v-else size="small" type="info">ERR</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="ip" label="来源 IP" width="150" show-overflow-tooltip />
       <el-table-column label="时间" width="170">
         <template #default="{ row }">{{ datetime(row.created_at) }}</template>

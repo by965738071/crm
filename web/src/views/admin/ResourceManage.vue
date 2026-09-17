@@ -22,6 +22,8 @@ const counts = ref({}) // category_id -> 资料数（0 = 未分类）
 
 // “全部资料”伪根节点（id=0），真实分类挂在它下面
 const navTree = computed(() => [{ id: 0, name: '全部资料', children: treeData.value }])
+// 默认只展开伪根节点 → 展示一级分类；二级及以下保持折叠
+const expandedKeys = [0]
 const allTotal = computed(() => Object.values(counts.value).reduce((s, n) => s + n, 0))
 
 function countOf(id) {
@@ -233,7 +235,7 @@ onMounted(async () => {
         :props="treeProps"
         node-key="id"
         highlight-current
-        default-expand-all
+        :default-expanded-keys="expandedKeys"
         :expand-on-click-node="false"
         @node-click="onCatNode"
       >

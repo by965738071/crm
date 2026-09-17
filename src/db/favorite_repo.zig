@@ -37,6 +37,8 @@ pub const ListResult = struct {
     total: i64,
 };
 
+// 列清单手写：f. 表前缀 + COALESCE 出的 title/cover/price/rtype 展示字段，
+// rtype 列与会话别名也不同名，无法用 colref.cols 反射
 const fav_cols =
     \\SELECT f.id, f.target_type, f.target_id,
     \\       COALESCE(c.title, r.name, ''), COALESCE(c.cover, ''), COALESCE(c.price, 0),

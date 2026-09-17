@@ -4,6 +4,7 @@
 const std = @import("std");
 const zqlite = @import("zqlite");
 const db = @import("db.zig");
+const colref = @import("colref.zig");
 
 pub const Course = struct {
     id: i64,
@@ -54,9 +55,9 @@ pub const CourseListOpts = struct {
     include_subtree: bool = false,
 };
 
-const course_cols = "id, category_id, title, cover, summary, description, price, is_free, status, sort, enroll_count, created_at, updated_at";
-const chapter_cols = "id, course_id, title, sort";
-const lesson_cols = "id, course_id, chapter_id, title, content_type, resource_id, content, duration, is_free, sort";
+const course_cols = colref.cols(Course);
+const chapter_cols = colref.cols(Chapter);
+const lesson_cols = colref.cols(Lesson);
 
 fn rowToCourse(row: zqlite.Row, a: std.mem.Allocator) !Course {
     return .{

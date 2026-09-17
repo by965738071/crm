@@ -45,6 +45,8 @@ pub const Order = struct {
     course_title: []const u8 = "",
 };
 
+// 列清单手写：o. 表前缀、COALESCE 与 JOIN 出的 username/nickname/course_title 展示字段
+// 超出裸列映射约束，无法用 colref.cols 反射
 const order_cols =
     \\o.id, o.order_no, o.user_id, o.course_id, o.amount, o.status, o.pay_method,
     \\o.remark, o.operator_id, o.paid_at, o.created_at,

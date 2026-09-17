@@ -33,8 +33,9 @@
     // internet connectivity.
     .dependencies = .{
         .http_framework = .{
-            .url = "git+https://github.com/by965738071/http-framework#main",
-            .hash = "http_framework-1.0.0-1YqJfjwRDwC-_PkYQV9GDJzsrGG6beN9ZTvsozv2dHVm",
+            .path = "../wlw/http-framework"
+            //.url = "git+https://github.com/by965738071/http-framework#main",
+            
         },
 
         .zqlite = .{

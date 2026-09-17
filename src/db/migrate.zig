@@ -272,10 +272,17 @@ const v3 = [_][]const u8{
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_study_logs_user_lesson_date ON study_logs(user_id, lesson_id, date)",
 };
 
+/// v4：审计日志补充请求参数（query 字符串）与独立响应状态列
+const v4 = [_][]const u8{
+    "ALTER TABLE audit_logs ADD COLUMN query TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE audit_logs ADD COLUMN status INTEGER NOT NULL DEFAULT 0",
+};
+
 pub const migrations = [_]Migration{
     .{ .sql = &v1 },
     .{ .sql = &v2 },
     .{ .sql = &v3 },
+    .{ .sql = &v4 },
 };
 
 /// 执行所有未应用的迁移，并写入种子数据
@@ -289,17 +296,7 @@ pub fn run(dbh: *db.Db, io: std.Io, allocator: std.mem.Allocator) !void {
     try seed(dbh, io, allocator);
 }
 
-const seed_categories = [_][]const u8{
-    "临床执业医师",
-    "临床执业助理医师",
-    "中医执业医师",
-    "中医执业助理医师",
-    "口腔执业医师",
-    "公共卫生执业医师",
-    "中西医结合执业医师",
-};
-
-/// 幂等种子：仅在缺失时写入（超管账号 + 一级分类）
+/// 幂等种子泡：仅缺失时写入超管账号（不再自动预置分类，保持干净环境）
 pub fn seed(dbh: *db.Db, io: std.Io, allocator: std.mem.Allocator) !void {
     const now: i64 = @intCast(@divTrunc(std.Io.Timestamp.now(io, .real).nanoseconds, std.time.ns_per_s));
 
@@ -318,17 +315,6 @@ pub fn seed(dbh: *db.Db, io: std.Io, allocator: std.mem.Allocator) !void {
             .{ "admin@example.com", "admin", hash, "超级管理员", now },
         );
         std.log.warn("seed: created superadmin 'admin' (admin@example.com) with default password — 请尽快登录修改！", .{});
-    }
-
-    // 一级分类
-    if (((try dbh.scalarInt("SELECT COUNT(*) FROM categories", .{})) orelse 0) == 0) {
-        for (seed_categories, 0..) |name, i| {
-            try dbh.exec(
-                "INSERT INTO categories (parent_id, name, sort) VALUES (0, ?1, ?2)",
-                .{ name, @as(i64, @intCast(i)) },
-            );
-        }
-        std.log.info("seed: inserted {d} default categories", .{seed_categories.len});
     }
 }
 
@@ -352,7 +338,7 @@ test "migrate creates schema and idempotent seed" {
 
     try std.testing.expectEqual(@as(u32, migrations.len), try dbh.schemaVersion());
     try std.testing.expectEqual(@as(?i64, 1), try dbh.scalarInt("SELECT COUNT(*) FROM users WHERE role = 'superadmin'", .{}));
-    try std.testing.expectEqual(@as(?i64, seed_categories.len), try dbh.scalarInt("SELECT COUNT(*) FROM categories", .{}));
+    try std.testing.expectEqual(@as(?i64, 0), try dbh.scalarInt("SELECT COUNT(*) FROM categories", .{}));
 
     // 测试结束后清理文件（macOS 允许对未关闭连接的文件 unlink，连接由 defer 关闭）
     std.Io.Dir.cwd().deleteFile(io, path) catch {};

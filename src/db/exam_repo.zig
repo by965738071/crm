@@ -14,6 +14,7 @@ const zqlite = @import("zqlite");
 const db = @import("db.zig");
 const question_repo = @import("question_repo.zig");
 const practice_repo = @import("practice_repo.zig");
+const colref = @import("colref.zig");
 
 // ---------------------------------------------------------------- 试卷
 
@@ -155,7 +156,7 @@ pub fn decodeRules(a: std.mem.Allocator, json_str: []const u8) ![]Rule {
 
 // ---------------------------------------------------------------- 试卷 CRUD
 
-const exam_cols = "id, category_id, title, duration_min, total_score, pass_score, rules, status, created_at";
+const exam_cols = colref.cols(Exam);
 
 fn rowToExam(a: std.mem.Allocator, row: zqlite.Row) !Exam {
     return .{
@@ -584,7 +585,7 @@ pub const Attempt = struct {
     submitted_at: i64,
 };
 
-const attempt_cols = "id, exam_id, user_id, questions, answers, score, passed, started_at, deadline_at, submitted_at";
+const attempt_cols = colref.cols(Attempt);
 
 fn rowToAttempt(a: std.mem.Allocator, row: zqlite.Row) !Attempt {
     return .{

@@ -4,6 +4,7 @@
 const std = @import("std");
 const zqlite = @import("zqlite");
 const db = @import("db.zig");
+const colref = @import("colref.zig");
 
 pub const RepoError = error{ UserNotFound, UserExists };
 
@@ -31,7 +32,8 @@ pub const ListOpts = struct {
     role: []const u8 = "",
 };
 
-const select_cols = "id, email, username, nickname, avatar, role, status, created_at, updated_at";
+// 列清单由 User struct 编译期生成，避免手写串与字段漂移
+const select_cols = colref.cols(User);
 
 fn rowToUser(row: zqlite.Row, a: std.mem.Allocator) !User {
     return .{

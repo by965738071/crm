@@ -217,6 +217,7 @@ pub fn markPaid(dbh: *db.Db, a: std.mem.Allocator, opts: PayOpts) !Order {
 
 /// 取消订单：仅 pending 可取消；联动删除 unpaid 报名并回退 enroll_count，
 /// 使学员可重新报名（重新报名会生成全新订单）。
+/// 注意：如果 enrollments/orders 被其他业务表加外键，此处 DELETE 可能被 FK 拒绝。
 pub fn cancel(dbh: *db.Db, a: std.mem.Allocator, order_id: i64, operator_id: i64, remark: []const u8) !Order {
     try dbh.exec("BEGIN IMMEDIATE", .{});
     errdefer dbh.exec("ROLLBACK", .{}) catch {};

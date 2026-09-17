@@ -99,9 +99,19 @@ export const adminApi = {
   createLesson: (d) => http.post('/admin/lessons', d),
   updateLesson: (id, d) => http.put(`/admin/lessons/${id}`, d),
   deleteLesson: (id) => http.delete(`/admin/lessons/${id}`),
-  // 资料（上传 multipart 字段：file/name/category_id/is_public；大文件放宽超时）
+  // 资料（上传 multipart 字段：file/name/category_id/is_public；category_id 必选；大文件放宽超时）
   resources: (params) => http.get('/admin/resources', { params }),
+  resourceStats: () => http.get('/admin/resource-stats'),
+  courseStats: () => http.get('/admin/course-stats'),
+  questionStats: () => http.get('/admin/question-stats'),
+  examStats: () => http.get('/admin/exam-stats'),
   uploadResource: (fd) => http.post('/admin/upload', fd, { timeout: 300000 }),
+  // 题目图片：multipart 字段 file（png/jpg/jpeg/gif/webp，≤5MB）→ { url, size }
+  uploadImage: (file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return http.post('/admin/upload-image', fd, { timeout: 60000 })
+  },
   updateResource: (id, d) => http.put(`/admin/resources/${id}`, d),
   deleteResource: (id) => http.delete(`/admin/resources/${id}`),
   // 题库

@@ -76,13 +76,14 @@ onMounted(load)
 </script>
 
 <template>
-  <div>
+  <div class="page-list">
     <div class="toolbar">
       <el-button type="primary" @click="openCreate(null)">新增根分类</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="treeData" row-key="id" default-expand-all
-      :tree-props="{ children: 'children' }">
+    <div class="table-wrap">
+    <el-table v-loading="loading" :data="treeData" row-key="id"
+      :tree-props="{ children: 'children' }" height="100%">
       <el-table-column prop="name" label="分类名" min-width="240" show-overflow-tooltip />
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="sort" label="排序" width="80" />
@@ -93,8 +94,11 @@ onMounted(load)
           <el-button size="small" type="danger" plain @click="remove(row)">删除</el-button>
         </template>
       </el-table-column>
+      <template #empty>
+        <el-empty description="暂无分类，先创建根分类" />
+      </template>
     </el-table>
-    <el-empty v-if="!loading && !treeData.length" description="暂无分类，先创建根分类" />
+    </div>
 
     <el-dialog v-model="dlgVisible" :title="editingId ? '编辑分类' : '新增分类'" width="460">
       <el-form label-width="80px">
@@ -119,7 +123,9 @@ onMounted(load)
 </template>
 
 <style scoped>
-.toolbar { display: flex; gap: 10px; margin-bottom: 14px; }
+.page-list { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex: none; }
+.table-wrap { flex: 1; min-height: 0; }
 .w100 { width: 100%; }
 .hint { margin-left: 10px; font-size: 12px; color: var(--el-text-color-secondary); }
 </style>

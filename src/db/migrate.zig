@@ -262,9 +262,20 @@ const v2 = [_][]const u8{
     "CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at)",
 };
 
+/// v3：学习域性能索引 + heartbeat 幂等性唯一约束（BUG-009 / BUG-014）
+const v3 = [_][]const u8{
+    // BUG-009: 优化「我的课程」列表查询性能
+    "CREATE INDEX IF NOT EXISTS idx_lessons_course_deleted ON lessons(course_id, deleted)",
+    "CREATE INDEX IF NOT EXISTS idx_progress_user_course_status ON learning_progress(user_id, course_id, status, updated_at DESC)",
+    // BUG-014: heartbeat 幂等性——先清理可能存在的重复，再建唯一索引
+    "DELETE FROM study_logs WHERE id > (SELECT MIN(id) FROM study_logs s2 WHERE s2.user_id = study_logs.user_id AND s2.lesson_id = study_logs.lesson_id AND s2.date = study_logs.date)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_study_logs_user_lesson_date ON study_logs(user_id, lesson_id, date)",
+};
+
 pub const migrations = [_]Migration{
     .{ .sql = &v1 },
     .{ .sql = &v2 },
+    .{ .sql = &v3 },
 };
 
 /// 执行所有未应用的迁移，并写入种子数据

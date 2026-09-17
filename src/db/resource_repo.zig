@@ -1,4 +1,3 @@
-//! 资料库数据访问（resources）。字符串 dupe 到调用方 allocator。
 
 const std = @import("std");
 const zqlite = @import("zqlite");
@@ -22,6 +21,8 @@ pub const ResourceListOpts = struct {
     page: i64 = 1,
     size: i64 = 20,
     category_id: i64 = 0,
+    /// 为 true 且 category_id != 0 时，匹配该分类及其所有子孙分类下的资料
+    include_subtree: bool = false,
     rtype: []const u8 = "",
     keyword: []const u8 = "",
 };
@@ -99,6 +100,54 @@ pub const ResourceList = struct {
     total: i64,
 };
 
+/// 分类维度资料计数（不含软删）。category_id=0 表示未分类。
+pub const CategoryCount = struct {
+    category_id: i64,
+    count: i64,
+};
+
+pub fn countByCategory(dbh: *db.Db, a: std.mem.Allocator) ![]CategoryCount {
+    var items: std.ArrayList(CategoryCount) = .empty;
+    var rows = try dbh.conn.rows(
+        "SELECT category_id, COUNT(*) FROM resources WHERE deleted = 0 GROUP BY category_id",
+        .{},
+    );
+    defer rows.deinit();
+    while (rows.next()) |row| {
+        try items.append(a, .{ .category_id = row.int(0), .count = row.int(1) });
+    }
+    if (rows.err) |e| return e;
+    return items.items;
+}
+
+// 子树过滤用 SQLite 递归 CTE：两套 SQL 全部在 comptime 拼成常量（参数个数一致 ?1..?6），
+// 运行时只做常量选择。depth < 20 既覆盖正常层级，也防 categories 里出现父子环时无限递归。
+const cte_subtree =
+    "WITH RECURSIVE sub(id, depth) AS (" ++
+    " SELECT ?3, 0" ++
+    " UNION ALL" ++
+    " SELECT c.id, s.depth + 1 FROM categories c JOIN sub s ON c.parent_id = s.id" ++
+    " WHERE c.deleted = 0 AND s.depth < 20) ";
+
+const where_exact =
+    "((?1 = '' OR name LIKE ?2 ESCAPE '\\' OR orig_name LIKE ?2 ESCAPE '\\') AND (?3 = 0 OR category_id = ?3) AND (?4 = '' OR type = ?4)) AND deleted = 0";
+
+const where_subtree =
+    "((?1 = '' OR name LIKE ?2 ESCAPE '\\' OR orig_name LIKE ?2 ESCAPE '\\') AND (?3 = 0 OR category_id IN (SELECT id FROM sub)) AND (?4 = '' OR type = ?4)) AND deleted = 0";
+
+const public_and = " AND is_public = 1";
+const order_limit = " ORDER BY id DESC LIMIT ?5 OFFSET ?6";
+
+const count_exact = "SELECT COUNT(*) FROM resources WHERE " ++ where_exact;
+const count_subtree = cte_subtree ++ "SELECT COUNT(*) FROM resources WHERE " ++ where_subtree;
+const rows_exact = "SELECT " ++ select_cols ++ " FROM resources WHERE " ++ where_exact ++ order_limit;
+const rows_subtree = cte_subtree ++ "SELECT " ++ select_cols ++ " FROM resources WHERE " ++ where_subtree ++ order_limit;
+
+const count_public_exact = "SELECT COUNT(*) FROM resources WHERE " ++ where_exact ++ public_and;
+const count_public_subtree = cte_subtree ++ "SELECT COUNT(*) FROM resources WHERE " ++ where_subtree ++ public_and;
+const rows_public_exact = "SELECT " ++ select_cols ++ " FROM resources WHERE " ++ where_exact ++ public_and ++ order_limit;
+const rows_public_subtree = cte_subtree ++ "SELECT " ++ select_cols ++ " FROM resources WHERE " ++ where_subtree ++ public_and ++ order_limit;
+
 fn likePattern(a: std.mem.Allocator, kw: []const u8) ![]u8 {
     var out: std.ArrayList(u8) = .empty;
     try out.append(a, '%');
@@ -114,17 +163,14 @@ fn likePattern(a: std.mem.Allocator, kw: []const u8) ![]u8 {
 }
 
 pub fn list(dbh: *db.Db, a: std.mem.Allocator, opts: ResourceListOpts) !ResourceList {
-    const where_part =
-        "((?1 = '' OR name LIKE ?2 ESCAPE '\\' OR orig_name LIKE ?2 ESCAPE '\\') AND (?3 = 0 OR category_id = ?3) AND (?4 = '' OR type = ?4)) AND deleted = 0";
-
     const total = (try dbh.scalarInt(
-        "SELECT COUNT(*) FROM resources WHERE " ++ where_part,
+        if (opts.include_subtree) count_subtree else count_exact,
         .{ opts.keyword, try likePattern(a, opts.keyword), opts.category_id, opts.rtype },
     )) orelse 0;
 
     var items: std.ArrayList(Resource) = .empty;
     var rows = try dbh.conn.rows(
-        "SELECT " ++ select_cols ++ " FROM resources WHERE " ++ where_part ++ " ORDER BY id DESC LIMIT ?5 OFFSET ?6",
+        if (opts.include_subtree) rows_subtree else rows_exact,
         .{ opts.keyword, try likePattern(a, opts.keyword), opts.category_id, opts.rtype, opts.size, (opts.page - 1) * opts.size },
     );
     defer rows.deinit();
@@ -137,17 +183,14 @@ pub fn list(dbh: *db.Db, a: std.mem.Allocator, opts: ResourceListOpts) !Resource
 
 /// 游客可见列表：仅 is_public=1
 pub fn listPublic(dbh: *db.Db, a: std.mem.Allocator, opts: ResourceListOpts) !ResourceList {
-    const where_part =
-        "((?1 = '' OR name LIKE ?2 ESCAPE '\\' OR orig_name LIKE ?2 ESCAPE '\\') AND (?3 = 0 OR category_id = ?3) AND (?4 = '' OR type = ?4)) AND is_public = 1 AND deleted = 0";
-
     const total = (try dbh.scalarInt(
-        "SELECT COUNT(*) FROM resources WHERE " ++ where_part,
+        if (opts.include_subtree) count_public_subtree else count_public_exact,
         .{ opts.keyword, try likePattern(a, opts.keyword), opts.category_id, opts.rtype },
     )) orelse 0;
 
     var items: std.ArrayList(Resource) = .empty;
     var rows = try dbh.conn.rows(
-        "SELECT " ++ select_cols ++ " FROM resources WHERE " ++ where_part ++ " ORDER BY id DESC LIMIT ?5 OFFSET ?6",
+        if (opts.include_subtree) rows_public_subtree else rows_public_exact,
         .{ opts.keyword, try likePattern(a, opts.keyword), opts.category_id, opts.rtype, opts.size, (opts.page - 1) * opts.size },
     );
     defer rows.deinit();
@@ -177,6 +220,16 @@ const test_sql =
     \\)
 ;
 
+const test_sql_cats =
+    \\CREATE TABLE IF NOT EXISTS categories (
+    \\  id INTEGER PRIMARY KEY AUTOINCREMENT,
+    \\  parent_id INTEGER NOT NULL DEFAULT 0,
+    \\  name TEXT NOT NULL,
+    \\  sort INTEGER NOT NULL DEFAULT 0,
+    \\  deleted INTEGER NOT NULL DEFAULT 0
+    \\)
+;
+
 fn openTestDb(a: std.mem.Allocator, path: [:0]const u8) !db.Db {
     std.Io.Dir.cwd().createDirPath(std.testing.io, ".test_data") catch |err| switch (err) {
         error.PathAlreadyExists => {},
@@ -185,6 +238,7 @@ fn openTestDb(a: std.mem.Allocator, path: [:0]const u8) !db.Db {
     std.Io.Dir.cwd().deleteFile(std.testing.io, path) catch {};
     var dbh = try db.Db.open(a, path);
     try dbh.exec(test_sql, .{});
+    try dbh.exec(test_sql_cats, .{});
     return dbh;
 }
 
@@ -214,9 +268,32 @@ test "resource_repo lifecycle + filters" {
     try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{ .keyword = "讲义" })).total);
     try std.testing.expectEqual(@as(i64, 0), (try list(&dbh, a, .{ .keyword = "%" })).total);
 
+    // 分类树 1 -> 2 -> 3，子树过滤
+    try dbh.exec("INSERT INTO categories (id, parent_id, name) VALUES (1, 0, '根'), (2, 1, '子'), (3, 2, '孙')", .{});
+    const r3 = try create(&dbh, 3, "孙子资料", "c.pdf", "pdf", "uploads/2026-09/c.pdf", 10, "application/pdf", 1, 1, 102);
+    _ = r3;
+    // 精确：cat1 只有 r1；子树：cat1 含 r1(cat1)+r2(cat2)+r3(cat3)
+    try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{ .category_id = 1 })).total);
+    try std.testing.expectEqual(@as(i64, 3), (try list(&dbh, a, .{ .category_id = 1, .include_subtree = true })).total);
+    try std.testing.expectEqual(@as(i64, 2), (try list(&dbh, a, .{ .category_id = 2, .include_subtree = true })).total);
+    try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{ .category_id = 3, .include_subtree = true })).total);
+    // 子树 + 其它过滤条件叠加
+    try std.testing.expectEqual(@as(i64, 2), (try list(&dbh, a, .{ .category_id = 1, .include_subtree = true, .rtype = "pdf" })).total);
+    // listPublic 同样支持子树：此时公开且未删的只有 r3（r1 已改私密，r2 私密）
+    try std.testing.expectEqual(@as(i64, 1), (try listPublic(&dbh, a, .{ .category_id = 1, .include_subtree = true })).total);
+
     try deleteSoft(&dbh, r1);
-    try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{})).total);
+    try std.testing.expectEqual(@as(i64, 2), (try list(&dbh, a, .{})).total);
     try std.testing.expect((try getById(&dbh, a, r1)) == null);
+
+    // 分类计数（未删）：cat2 → 1，cat3 → 1
+    const stats = try countByCategory(&dbh, a);
+    var found = std.AutoHashMap(i64, i64).init(a);
+    defer found.deinit();
+    for (stats) |s| try found.put(s.category_id, s.count);
+    try std.testing.expectEqual(@as(?i64, 1), found.get(2));
+    try std.testing.expectEqual(@as(?i64, 1), found.get(3));
+    try std.testing.expectEqual(@as(?i64, null), found.get(1));
 
     try std.testing.expectError(error.NotFound, update(&dbh, 9999, 0, "x", "video", 1));
     try std.testing.expectError(error.NotFound, deleteSoft(&dbh, 9999));

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { examApi } from '../../api'
 import { datetime } from '../../utils'
+import PaginationBar from '../../components/PaginationBar.vue'
 
 const router = useRouter()
 const loading = ref(false)
@@ -84,9 +85,7 @@ onMounted(() => {
       </el-row>
       <el-empty v-if="!loading && !items.length" description="暂无开放中的试卷" />
     </div>
-    <el-pagination v-if="total > query.size" class="pager" layout="prev, pager, next, total" :total="total"
-      :page-size="query.size" :current-page="query.page"
-      @current-change="(p) => { query.page = p; load() }" />
+    <PaginationBar v-model:page="query.page" :total="total" :size="query.size" @change="load" />
 
     <h3 class="sec">考试记录</h3>
     <el-table v-loading="hisLoading" :data="attempts" stripe size="small">
@@ -116,9 +115,7 @@ onMounted(() => {
         </template>
       </el-table-column>
     </el-table>
-    <el-pagination v-if="hisTotal > hisQuery.size" class="pager" layout="prev, pager, next, total" :total="hisTotal"
-      :page-size="hisQuery.size" :current-page="hisQuery.page"
-      @current-change="(p) => { hisQuery.page = p; loadHistory() }" />
+    <PaginationBar v-model:page="hisQuery.page" :total="hisTotal" :size="hisQuery.size" @change="loadHistory" />
   </div>
 </template>
 
@@ -130,6 +127,5 @@ onMounted(() => {
 .mine { font-size: 13px; margin-top: 6px; }
 .best { color: var(--el-color-warning); margin-left: 8px; }
 .go { margin-top: 10px; width: 100%; }
-.pager { margin: 4px 0 12px; justify-content: center; }
 .ellipsis2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 </style>

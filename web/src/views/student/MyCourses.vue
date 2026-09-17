@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { learningApi } from '../../api'
 import { money, datetime } from '../../utils'
+import PaginationBar from '../../components/PaginationBar.vue'
 
 const router = useRouter()
 const loading = ref(false)
@@ -75,15 +76,7 @@ onMounted(load)
       </el-empty>
     </div>
 
-    <el-pagination
-      v-if="total > query.size"
-      class="pager"
-      layout="prev, pager, next, total"
-      :total="total"
-      :page-size="query.size"
-      :current-page="query.page"
-      @current-change="(p) => { query.page = p; load() }"
-    />
+    <PaginationBar v-model:page="query.page" :total="total" :size="query.size" @change="load" />
   </div>
 </template>
 
@@ -101,5 +94,4 @@ onMounted(load)
 .meta { font-size: 12px; color: var(--el-text-color-secondary); margin: 6px 0 8px; }
 .prog { max-width: 520px; }
 .ops { flex: none; }
-.pager { margin-top: 12px; justify-content: center; }
 </style>

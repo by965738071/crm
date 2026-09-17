@@ -136,5 +136,7 @@ async function onLogout() {
   margin: 0 auto;
   overflow-y: auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 </style>

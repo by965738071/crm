@@ -25,11 +25,11 @@ fn rowToCategory(row: zqlite.Row, a: std.mem.Allocator) !Category {
     };
 }
 
-pub fn create(dbh: *db.Db, a: std.mem.Allocator, parent_id: i64, name: []const u8) !i64 {
+pub fn create(dbh: *db.Db, a: std.mem.Allocator, parent_id: i64, name: []const u8, sort: i64) !i64 {
     _ = a;
     try dbh.conn.exec(
-        "INSERT INTO categories (parent_id, name) VALUES (?1, ?2)",
-        .{ parent_id, name },
+        "INSERT INTO categories (parent_id, name, sort) VALUES (?1, ?2, ?3)",
+        .{ parent_id, name, sort },
     );
     return dbh.lastInsertId();
 }
@@ -103,13 +103,14 @@ test "category_repo create/get/update/findAll/delete" {
     var dbh = try openTestDb(a, ".test_data/category_repo_test.db");
     defer dbh.close();
 
-    const id1 = try create(&dbh, a, 0, "临床执业医师");
+    const id1 = try create(&dbh, a, 0, "临床执业医师", 1);
     try std.testing.expect(id1 > 0);
-    const id2 = try create(&dbh, a, id1, "内科学");
+    const id2 = try create(&dbh, a, id1, "内科学", 2);
 
     const got = (try getById(&dbh, a, id2)).?;
     try std.testing.expectEqualStrings("内科学", got.name);
     try std.testing.expectEqual(id1, got.parent_id);
+    try std.testing.expectEqual(@as(i64, 2), got.sort);
 
     try update(&dbh, a, id2, id1, "外科学", 5);
     const updated = (try getById(&dbh, a, id2)).?;

@@ -33,11 +33,22 @@ fn isEmail(s: []const u8) bool {
     if (s.len == 0 or s.len > 254) return false;
     const at = std.mem.indexOfScalar(u8, s, '@') orelse return false;
     if (at == 0 or at == s.len - 1) return false;
-    const domain = s[at + 1 ..];
-    if (std.mem.indexOfScalar(u8, domain, '.') == null) return false;
+    if (std.mem.indexOfScalar(u8, s, '\"') != null) return false;
+    var prev: u8 = undefined;
+    var prev_prev: u8 = undefined;
     for (s) |c| {
         if (c <= ' ' or c == 127) return false;
+        if (c == '.') {
+            if (prev == '.' or prev_prev == '.') return false;
+            if (prev == '@') return false;
+            if (at > 0 and s[at - 1] == '.') return false;
+        }
+        prev_prev = prev;
+        prev = c;
     }
+    const domain = s[at + 1 ..];
+    if (std.mem.indexOfScalar(u8, domain, '.') == null) return false;
+    if (domain[0] == '.' or domain[domain.len - 1] == '.') return false;
     return true;
 }
 

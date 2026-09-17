@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { orderApi } from '../../api'
 import { datetime } from '../../utils'
+import PaginationBar from '../../components/PaginationBar.vue'
 
 const loading = ref(false)
 const items = ref([])
@@ -75,20 +76,11 @@ onMounted(load)
     </el-table>
     <el-empty v-if="!loading && !items.length" description="暂无订单" />
 
-    <el-pagination
-      v-if="total > query.size"
-      class="pager"
-      layout="prev, pager, next, total"
-      :total="total"
-      :page-size="query.size"
-      :current-page="query.page"
-      @current-change="(p) => { query.page = p; load() }"
-    />
+    <PaginationBar v-model:page="query.page" :total="total" :size="query.size" @change="load" />
   </div>
 </template>
 
 <style scoped>
 .toolbar { margin-bottom: 14px; }
 .amount { color: var(--el-color-danger); font-weight: 600; }
-.pager { margin-top: 12px; justify-content: center; }
 </style>

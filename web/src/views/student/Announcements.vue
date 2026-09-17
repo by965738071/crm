@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { announcementApi } from '../../api'
 import { datetime } from '../../utils'
+import PaginationBar from '../../components/PaginationBar.vue'
 
 const loading = ref(false)
 const items = ref([])
@@ -70,14 +71,7 @@ onMounted(load)
       <el-empty v-if="!loading && !items.length" description="暂无公告" />
     </div>
 
-    <el-pagination
-      v-if="total > query.size"
-      layout="prev, pager, next, total"
-      :total="total"
-      :page-size="query.size"
-      :current-page="query.page"
-      @current-change="(p) => { query.page = p; load() }"
-    />
+    <PaginationBar v-model:page="query.page" :total="total" :size="query.size" @change="load" />
 
     <el-dialog v-model="detailVisible" :title="detail?.title" width="640px" destroy-on-close
       @closed="detail = null">

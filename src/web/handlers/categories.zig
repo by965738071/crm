@@ -65,7 +65,7 @@ pub fn create(ctx: *framework.Context, res: *framework.Response) !void {
         return ctx.failWith(framework.AppError.notFound("父分类不存在"));
     }
 
-    const id = try cat_repo.create(st.db, ctx.arena, body.parent_id, body.name);
+    const id = try cat_repo.create(st.db, ctx.arena, body.parent_id, body.name, body.sort);
     const cat = (try cat_repo.getById(st.db, ctx.arena, id)).?;
     try respond.ok(res, nodeOf(cat));
 }

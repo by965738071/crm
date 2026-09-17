@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { practiceApi } from '../../api'
 import { datetime } from '../../utils'
 import QuestionCard from '../../components/QuestionCard.vue'
+import PaginationBar from '../../components/PaginationBar.vue'
 
 const loading = ref(false)
 const tab = ref('wrong') // wrong | fav
@@ -85,15 +86,7 @@ onMounted(load)
       <el-empty v-if="!loading && !items.length" :description="tab === 'wrong' ? '暂时没有错题，继续加油！' : '还没有收藏题目'" />
     </div>
 
-    <el-pagination
-      v-if="total > query.size"
-      class="pager"
-      layout="prev, pager, next, total"
-      :total="total"
-      :page-size="query.size"
-      :current-page="query.page"
-      @current-change="(p) => { query.page = p; load() }"
-    />
+    <PaginationBar v-model:page="query.page" :total="total" :size="query.size" @change="load" />
   </div>
 </template>
 
@@ -105,5 +98,4 @@ onMounted(load)
   border-top: 1px solid var(--el-border-color-lighter); padding-top: 8px; margin-top: 4px;
 }
 .meta { font-size: 12px; color: var(--el-text-color-secondary); }
-.pager { margin-top: 12px; justify-content: center; }
 </style>

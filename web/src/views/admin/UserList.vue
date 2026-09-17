@@ -1,13 +1,15 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi } from '../../api'
 import { datetime } from '../../utils'
 import { useAuthStore } from '../../stores/auth'
+import PaginationBar from '../../components/PaginationBar.vue'
 
 const auth = useAuthStore()
 
 const loading = ref(false)
+const tableRef = ref(null)
 const items = ref([])
 const total = ref(0)
 const query = reactive({ keyword: '', role: '', page: 1, size: 20 })
@@ -44,9 +46,25 @@ async function load() {
   }
 }
 
+function triggerSlide() {
+  const el = tableRef.value?.$el
+  if (!el) return
+  el.classList.remove('slide-enter')
+  void el.offsetWidth
+  el.classList.add('slide-enter')
+}
+
+async function onPage(p) {
+  query.page = p
+  await load()
+  await nextTick()
+  tableRef.value?.setScrollTop(0)
+  triggerSlide()
+}
+
 function search() {
   query.page = 1
-  load()
+  load().then(() => nextTick().then(triggerSlide))
 }
 
 async function toggleStatus(row) {
@@ -98,7 +116,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div>
+  <div class="page-list">
     <div class="toolbar">
       <el-input
         v-model="query.keyword"
@@ -119,7 +137,8 @@ onMounted(load)
       <el-button type="primary" @click="search">查询</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="items" stripe>
+    <div class="table-wrap">
+    <el-table ref="tableRef" v-loading="loading" :data="items" stripe height="100%">
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="username" label="用户名" min-width="130" show-overflow-tooltip />
       <el-table-column label="昵称" min-width="180">
@@ -177,25 +196,21 @@ onMounted(load)
           </el-button>
         </template>
       </el-table-column>
+      <template #empty>
+        <el-empty description="暂无用户" />
+      </template>
     </el-table>
-    <el-empty v-if="!loading && !items.length" description="暂无用户" />
+    </div>
 
-    <el-pagination
-      v-if="total > query.size"
-      class="pager"
-      layout="prev, pager, next, total"
-      :total="total"
-      :page-size="query.size"
-      :current-page="query.page"
-      @current-change="(p) => { query.page = p; load() }"
-    />
+    <PaginationBar v-model:page="query.page" :total="total" :size="query.size" @change="onPage" />
   </div>
 </template>
 
 <style scoped>
-.toolbar { display: flex; gap: 10px; margin-bottom: 14px; }
+.page-list { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex: none; }
 .w220 { width: 220px; }
 .w150 { width: 150px; }
 .user-cell { display: flex; align-items: center; gap: 8px; }
-.pager { margin-top: 12px; justify-content: center; }
+.table-wrap { flex: 1; min-height: 0; }
 </style>

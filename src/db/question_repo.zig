@@ -317,6 +317,8 @@ pub const ListOpts = struct {
     type: []const u8 = "",
     difficulty: i64 = 0, // 0 = 不过滤
     keyword: []const u8 = "",
+    /// true = category_id 按分类子树过滤（配合递归 CTE）
+    include_subtree: bool = false,
 };
 
 fn likePattern(a: std.mem.Allocator, kw: []const u8) ![]const u8 {
@@ -339,15 +341,56 @@ const list_where =
         "(?3 = '' OR type = ?3) AND (?4 = 0 OR difficulty = ?4) AND " ++
         "(?5 = '' OR stem LIKE ?6 ESCAPE '\\') AND deleted = 0";
 
+// 子树过滤用 SQLite 递归 CTE：各套 SQL 全部在 comptime 拼成常量（参数个数一致 ?1..?8），
+// 运行时只做常量选择。根分类绑 ?1；depth < 20 防 categories 父子环时无限递归。
+const cte_subtree =
+    "WITH RECURSIVE sub(id, depth) AS (" ++
+    " SELECT ?1, 0" ++
+    " UNION ALL" ++
+    " SELECT c.id, s.depth + 1 FROM categories c JOIN sub s ON c.parent_id = s.id" ++
+    " WHERE c.deleted = 0 AND s.depth < 20) ";
+
+const list_where_subtree =
+    "(?1 = 0 OR category_id IN (SELECT id FROM sub)) AND (?2 = -1 OR course_id = ?2) AND " ++
+        "(?3 = '' OR type = ?3) AND (?4 = 0 OR difficulty = ?4) AND " ++
+        "(?5 = '' OR stem LIKE ?6 ESCAPE '\\') AND deleted = 0";
+
+const order_limit = " ORDER BY id DESC LIMIT ?7 OFFSET ?8";
+
+const count_exact = "SELECT COUNT(*) FROM questions WHERE " ++ list_where;
+const count_subtree = cte_subtree ++ "SELECT COUNT(*) FROM questions WHERE " ++ list_where_subtree;
+const rows_exact = "SELECT " ++ question_cols ++ " FROM questions WHERE " ++ list_where ++ order_limit;
+const rows_subtree = cte_subtree ++ "SELECT " ++ question_cols ++ " FROM questions WHERE " ++ list_where_subtree ++ order_limit;
+
+/// 分类维度题目计数（不含软删）。category_id=0 表示未分类。
+pub const CategoryCount = struct {
+    category_id: i64,
+    count: i64,
+};
+
+pub fn countByCategory(dbh: *db.Db, a: std.mem.Allocator) ![]CategoryCount {
+    var items: std.ArrayList(CategoryCount) = .empty;
+    var rows = try dbh.conn.rows(
+        "SELECT category_id, COUNT(*) FROM questions WHERE deleted = 0 GROUP BY category_id",
+        .{},
+    );
+    defer rows.deinit();
+    while (rows.next()) |row| {
+        try items.append(a, .{ .category_id = row.int(0), .count = row.int(1) });
+    }
+    if (rows.err) |e| return e;
+    return items.items;
+}
+
 pub fn list(dbh: *db.Db, a: std.mem.Allocator, opts: ListOpts) !QuestionList {
     const like = try likePattern(a, opts.keyword);
     const total = (try dbh.scalarInt(
-        "SELECT COUNT(*) FROM questions WHERE " ++ list_where,
+        if (opts.include_subtree) count_subtree else count_exact,
         .{ opts.category_id, opts.course_id, opts.type, opts.difficulty, opts.keyword, like },
     )) orelse 0;
     var items: std.ArrayList(Question) = .empty;
     var rows = try dbh.conn.rows(
-        "SELECT " ++ question_cols ++ " FROM questions WHERE " ++ list_where ++ " ORDER BY id DESC LIMIT ?7 OFFSET ?8",
+        if (opts.include_subtree) rows_subtree else rows_exact,
         .{ opts.category_id, opts.course_id, opts.type, opts.difficulty, opts.keyword, like, opts.size, (opts.page - 1) * opts.size },
     );
     defer rows.deinit();
@@ -579,8 +622,19 @@ fn openTestDb(a: std.mem.Allocator, path: [:0]const u8) !db.Db {
     std.Io.Dir.cwd().deleteFile(std.testing.io, path) catch {};
     var dbh = try db.Db.open(a, path);
     for (test_sqls) |sql| try dbh.exec(sql, .{});
+    try dbh.exec(test_sql_cats, .{});
     return dbh;
 }
+
+const test_sql_cats =
+    \\CREATE TABLE IF NOT EXISTS categories (
+    \\  id INTEGER PRIMARY KEY AUTOINCREMENT,
+    \\  parent_id INTEGER NOT NULL DEFAULT 0,
+    \\  name TEXT NOT NULL,
+    \\  sort INTEGER NOT NULL DEFAULT 0,
+    \\  deleted INTEGER NOT NULL DEFAULT 0
+    \\)
+;
 
 test "question_repo CRUD / list / draw" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -616,6 +670,18 @@ test "question_repo CRUD / list / draw" {
     const l4 = try list(&dbh, a, .{ .type = "single" });
     try std.testing.expectEqual(@as(i64, 1), l4.total);
 
+    // 分类树 10 -> 11 -> 12，子树过滤（新题挂 cat 11）
+    try dbh.exec("INSERT INTO categories (id, parent_id, name) VALUES (10, 0, '根'), (11, 10, '子'), (12, 11, '孙')", .{});
+    const csub = try validateQuestion(a, .{ .category_id = 11, .type = "judge", .stem = "3+3=6?", .answer = "T" });
+    _ = try create(&dbh, .{ .q = csub, .creator_id = 1, .now = now });
+    try std.testing.expectEqual(@as(i64, 0), (try list(&dbh, a, .{ .category_id = 10 })).total);
+    try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{ .category_id = 10, .include_subtree = true })).total);
+    try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{ .category_id = 11, .include_subtree = true })).total);
+    try std.testing.expectEqual(@as(i64, 0), (try list(&dbh, a, .{ .category_id = 12, .include_subtree = true })).total);
+    // 子树 + 其它过滤条件叠加
+    try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{ .category_id = 10, .include_subtree = true, .type = "judge" })).total);
+    try std.testing.expectEqual(@as(i64, 0), (try list(&dbh, a, .{ .category_id = 10, .include_subtree = true, .type = "single" })).total);
+
     // 抽题：章节顺序抽（id 升序）；随机抽也在池内；used_count 联动
     const drawn = try drawForPractice(&dbh, a, 7, false, 10);
     try std.testing.expectEqual(@as(usize, 2), drawn.len);
@@ -633,4 +699,13 @@ test "question_repo CRUD / list / draw" {
     try std.testing.expect((try getById(&dbh, a, id1)) == null);
     try std.testing.expect((try getByIdIncludingDeleted(&dbh, a, id1)) != null);
     try std.testing.expectEqual(@as(usize, 1), (try drawForPractice(&dbh, a, 7, false, 10)).len);
+
+    // 分类计数（未删）：cat7 只剩多选题 1 道，cat11 判断题 1 道
+    const stats = try countByCategory(&dbh, a);
+    var found = std.AutoHashMap(i64, i64).init(a);
+    defer found.deinit();
+    for (stats) |s| try found.put(s.category_id, s.count);
+    try std.testing.expectEqual(@as(?i64, 1), found.get(7));
+    try std.testing.expectEqual(@as(?i64, 1), found.get(11));
+    try std.testing.expectEqual(@as(?i64, null), found.get(10));
 }

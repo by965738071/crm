@@ -24,6 +24,13 @@ pub const Db = struct {
             std.log.err("db: PRAGMA foreign_keys failed: {s}", .{@errorName(err)});
             return err;
         };
+        if (try self.conn.row("PRAGMA foreign_keys", .{})) |fk_row| {
+            defer fk_row.deinit();
+            if (fk_row.int(0) != 1) {
+                std.log.err("db: foreign_keys not enabled", .{});
+                return error.InvalidState;
+            }
+        }
         if (try self.conn.row("PRAGMA journal_mode = WAL", .{})) |row| {
             row.deinit();
         }

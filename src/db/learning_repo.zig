@@ -197,7 +197,8 @@ pub const MyEnrollmentList = struct {
 };
 
 /// 关联子查询共用同一 WHERE/ORDER BY，保证三个标量取到同一行；
-/// 当前数据量（万级报名）单连接串行查询足够，需要时补 learning_progress(user_id, course_id) 索引。
+/// 当前数据量（万级报名）单连接串行查询足够，v3 migration 已为 lessons(course_id, deleted)、
+/// learning_progress(user_id, course_id, status) 补索引，确保子查询高效。
 pub fn listByUser(dbh: *db.Db, a: std.mem.Allocator, user_id: i64, page: i64, size: i64) !MyEnrollmentList {
     const total = (try dbh.scalarInt(
         "SELECT COUNT(*) FROM enrollments e JOIN courses c ON c.id = e.course_id WHERE e.user_id = ?1 AND c.deleted = 0",
@@ -242,11 +243,20 @@ pub fn listByUser(dbh: *db.Db, a: std.mem.Allocator, user_id: i64, page: i64, si
 
 // ---------------------------------------------------------------- 学习时长
 
-/// 心跳/学习时长流水。date 为服务端 UTC 'YYYY-MM-DD'（跨天统一按服务端时钟归日）。
+/// 心跳/学习时长流水（幂等）。date 为服务端 UTC 'YYYY-MM-DD'（跨天统一按服务端时钟归日）；
+/// v3 migration 已为 study_logs(user_id, lesson_id, date) 建 UNIQUE 索引，这里用 ON CONFLICT
+/// 累加秒数，保证同一 (user_id, lesson_id, date) 多次上报不会产生重复行。
 pub fn logStudy(dbh: *db.Db, user_id: i64, course_id: i64, lesson_id: i64, seconds: i64, date: []const u8, now: i64) !void {
+    // zqlite 的 prepare 对 ON CONFLICT DO UPDATE 支持不稳定；改为两步操作保证幂等
     try dbh.exec(
-        "INSERT INTO study_logs (user_id, course_id, lesson_id, seconds, date, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        .{ user_id, course_id, lesson_id, seconds, date, now },
+        "UPDATE study_logs SET seconds = seconds + ?1, created_at = ?2 WHERE user_id = ?3 AND lesson_id = ?4 AND date = ?5",
+        .{ seconds, now, user_id, lesson_id, date },
+    );
+
+    try dbh.exec(
+        "INSERT INTO study_logs (user_id, course_id, lesson_id, seconds, date, created_at) SELECT ?1, ?2, ?3, ?4, ?5, ?6 " ++
+        "WHERE NOT EXISTS (SELECT 1 FROM study_logs WHERE user_id = ?7 AND lesson_id = ?8 AND date = ?9)",
+        .{ user_id, course_id, lesson_id, seconds, date, now, user_id, lesson_id, date },
     );
 }
 

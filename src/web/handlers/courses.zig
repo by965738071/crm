@@ -100,6 +100,7 @@ pub fn list(ctx: *framework.Context, res: *framework.Response) !void {
     const size = common.parseQueryInt(ctx, "size", 20, 100, 1);
     const category_id = common.parseQueryInt(ctx, "category_id", 0, 1 << 40, 0);
     const keyword = ctx.queryDecoded("keyword") catch null orelse "";
+    const include_subtree = common.parseQueryInt(ctx, "sub", 0, 1, 0) == 1;
 
     const r = try course_repo.list(st.db, ctx.arena, .{
         .page = page,
@@ -107,6 +108,7 @@ pub fn list(ctx: *framework.Context, res: *framework.Response) !void {
         .keyword = keyword,
         .category_id = category_id,
         .only_published = true,
+        .include_subtree = include_subtree,
     });
     try respond.ok(res, .{ .items = r.items.items, .total = r.total, .page = page, .size = size });
 }
@@ -232,6 +234,7 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
     const category_id = common.parseQueryInt(ctx, "category_id", 0, 1 << 40, 0);
     const keyword = ctx.queryDecoded("keyword") catch null orelse "";
     const status = ctx.query("status") orelse "";
+    const include_subtree = common.parseQueryInt(ctx, "sub", 0, 1, 0) == 1;
 
     // 状态过滤单独走一条 SQL：status 为空 = 全部
     var r: course_repo.CourseList = undefined;
@@ -243,11 +246,19 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
             .keyword = keyword,
             .category_id = category_id,
             .status = status,
+            .include_subtree = include_subtree,
         });
     } else {
-        r = try course_repo.list(st.db, ctx.arena, .{ .page = page, .size = size, .keyword = keyword, .category_id = category_id });
+        r = try course_repo.list(st.db, ctx.arena, .{ .page = page, .size = size, .keyword = keyword, .category_id = category_id, .include_subtree = include_subtree });
     }
     try respond.ok(res, .{ .items = r.items.items, .total = r.total, .page = page, .size = size });
+}
+
+/// 分类维度课程计数（供管理后台分类树展示）
+pub fn adminCourseStats(ctx: *framework.Context, res: *framework.Response) !void {
+    const st = ctx.service(state.State) orelse return ctx.failWith(framework.AppError.internal("app not ready"));
+    const stats = try course_repo.countByCategory(st.db, ctx.arena);
+    try respond.ok(res, .{ .items = stats });
 }
 
 pub fn adminGet(ctx: *framework.Context, res: *framework.Response) !void {

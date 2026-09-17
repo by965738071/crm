@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { favoriteApi } from '../../api'
 import { money, datetime } from '../../utils'
+import PaginationBar from '../../components/PaginationBar.vue'
 
 const router = useRouter()
 const loading = ref(false)
@@ -76,15 +77,7 @@ onMounted(load)
       <el-empty v-if="!loading && !items.length" description="暂无收藏" />
     </div>
 
-    <el-pagination
-      v-if="total > query.size"
-      class="pager"
-      layout="prev, pager, next, total"
-      :total="total"
-      :page-size="query.size"
-      :current-page="query.page"
-      @current-change="(p) => { query.page = p; load() }"
-    />
+    <PaginationBar v-model:page="query.page" :total="total" :size="query.size" @change="load" />
   </div>
 </template>
 
@@ -102,6 +95,5 @@ onMounted(load)
 .meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 12px; color: var(--el-text-color-secondary); }
 .price { color: var(--el-color-danger); font-weight: 600; }
 .ops { margin-top: 10px; text-align: right; }
-.pager { margin-top: 12px; justify-content: center; }
 .ellipsis2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 </style>

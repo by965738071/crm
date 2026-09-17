@@ -139,6 +139,7 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
 
     const page = common.parseQueryInt(ctx, "page", 1, 100_000, 1);
     const size = common.parseQueryInt(ctx, "size", 20, 100, 1);
+    const include_subtree = common.parseQueryInt(ctx, "sub", 0, 1, 0) == 1;
     const r = try question_repo.list(st.db, ctx.arena, .{
         .page = page,
         .size = size,
@@ -147,8 +148,16 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
         .type = ty,
         .difficulty = common.parseQueryInt(ctx, "difficulty", 0, 5, 0),
         .keyword = ctx.request.getQuery("keyword") orelse "",
+        .include_subtree = include_subtree,
     });
     try respond.ok(res, .{ .items = r.items.items, .total = r.total, .page = page, .size = size });
+}
+
+/// 分类维度题目计数（供管理后台分类树展示）
+pub fn adminCategoryStats(ctx: *framework.Context, res: *framework.Response) !void {
+    const st = ctx.service(state.State) orelse return ctx.failWith(framework.AppError.internal("app not ready"));
+    const stats = try question_repo.countByCategory(st.db, ctx.arena);
+    try respond.ok(res, .{ .items = stats });
 }
 
 // ---------------------------------------------------------------- 批量导入

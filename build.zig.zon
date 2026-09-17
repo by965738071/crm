@@ -34,12 +34,8 @@
     .dependencies = .{
         .http_framework = .{
             .url = "git+https://github.com/by965738071/http-framework#main",
-            .hash = "http_framework-1.0.0-1YqJfggPDwC3YUOepWUpterlnHxsBnt6_cIb079DAnIw",
+            .hash = "http_framework-1.0.0-1YqJfjwRDwC-_PkYQV9GDJzsrGG6beN9ZTvsozv2dHVm",
         },
-
-        // .http_framework = .{
-        //     .path = "../http-framework"
-        // },
 
         .zqlite = .{
             .url = "git+https://github.com/karlseguin/zqlite.zig?ref=dev#3a4ec07c373b181a739a47a331f86289352fee57",

@@ -2,6 +2,7 @@
 // 题目卡片：练习（即时反馈）、考试（仅作答）、错题本/收藏（直接展示答案解析）三场景复用。
 // answer 统一为字符串：单选 "A"、多选 "AB"（升序）、判断 "T"/"F"、填空为原文。
 import { computed } from 'vue'
+import RichText from './RichText.vue'
 
 const props = defineProps({
   q: { type: Object, required: true }, // {id,type,stem,options}
@@ -40,7 +41,7 @@ function pick(v) {
         {{ { single: '单选', multi: '多选', judge: '判断', fill: '填空' }[q.type] || q.type }}
       </el-tag>
       <span v-if="score" class="score">{{ score }} 分</span>
-      {{ q.stem }}
+      <RichText :text="q.stem" />
     </div>
 
     <div class="body">
@@ -63,7 +64,7 @@ function pick(v) {
           <el-radio value="F">错误</el-radio>
         </template>
         <el-radio v-else v-for="(opt, i) in q.options" :key="i" :value="letters[i]">
-          {{ letters[i] }}. {{ opt }}
+          {{ letters[i] }}. <RichText :text="opt" />
         </el-radio>
       </el-radio-group>
       <el-checkbox-group
@@ -73,7 +74,7 @@ function pick(v) {
         @update:model-value="(v) => (multiSel = v)"
       >
         <el-checkbox v-for="(opt, i) in q.options" :key="i" :value="letters[i]">
-          {{ letters[i] }}. {{ opt }}
+          {{ letters[i] }}. <RichText :text="opt" />
         </el-checkbox>
       </el-checkbox-group>
     </div>
@@ -91,7 +92,7 @@ function pick(v) {
         正确答案：<b>{{ showAnswer ? q.answer : feedback.answer }}</b>
       </div>
       <div v-if="(showAnswer ? q.explanation : feedback.explanation)" class="expl">
-        解析：{{ showAnswer ? q.explanation : feedback.explanation }}
+        解析：<RichText :text="showAnswer ? q.explanation : feedback.explanation" />
       </div>
     </div>
 

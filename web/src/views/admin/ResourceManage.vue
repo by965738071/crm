@@ -1,17 +1,43 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi, categoryApi } from '../../api'
 import { fileSize, datetime } from '../../utils'
+import PaginationBar from '../../components/PaginationBar.vue'
 
 const loading = ref(false)
+const tableRef = ref(null)
 const items = ref([])
 const total = ref(0)
-const query = reactive({ category_id: null, type: '', keyword: '', page: 1, size: 20 })
+// category_id：null = 全部；include_sub：选中分类时是否连子分类一起看
+const query = reactive({ category_id: null, include_sub: true, type: '', keyword: '', page: 1, size: 20 })
 
 const treeProps = { label: 'name', value: 'id', children: 'children' }
 const treeData = ref([])
 const catMap = ref({})
+
+// ---- 左侧分类导航 ----
+const treeRef = ref(null)
+const counts = ref({}) // category_id -> 资料数（0 = 未分类）
+
+// “全部资料”伪根节点（id=0），真实分类挂在它下面
+const navTree = computed(() => [{ id: 0, name: '全部资料', children: treeData.value }])
+const allTotal = computed(() => Object.values(counts.value).reduce((s, n) => s + n, 0))
+
+function countOf(id) {
+  if (id === 0) return allTotal.value
+  return counts.value[id] || 0
+}
+
+function currentCatName() {
+  return query.category_id ? catMap.value[query.category_id] || '' : ''
+}
+
+function onCatNode(data) {
+  query.category_id = data.id === 0 ? null : data.id
+  query.page = 1
+  load()
+}
 
 function flatten(nodes) {
   for (const n of nodes || []) {
@@ -26,6 +52,17 @@ async function loadCats() {
     treeData.value = r || []
     catMap.value = {}
     flatten(treeData.value)
+    await nextTick()
+    treeRef.value?.setCurrentKey(query.category_id ?? 0)
+  } catch {}
+}
+
+async function loadStats() {
+  try {
+    const r = await adminApi.resourceStats()
+    const m = {}
+    for (const row of (r && r.items) || []) m[row.category_id] = row.count
+    counts.value = m
   } catch {}
 }
 
@@ -34,6 +71,7 @@ async function load() {
   try {
     const r = await adminApi.resources({
       category_id: query.category_id || undefined,
+      sub: query.category_id && query.include_sub ? 1 : undefined,
       type: query.type || undefined,
       keyword: query.keyword || undefined,
       page: query.page,
@@ -44,6 +82,13 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+async function onPage(p) {
+  query.page = p
+  await load()
+  await nextTick()
+  tableRef.value?.setScrollTop(0)
 }
 
 function search() {
@@ -65,8 +110,12 @@ function downloadUrl(row) {
   return `/api/resources/${row.id}/download`
 }
 
+function catLabel(id) {
+  return (id && catMap.value[id]) || '未分类'
+}
+
 // ---- 上传弹窗 ----
-// 上传走 multipart：file + name + category_id + is_public（'1'/'0'），见 handlers/resources.zig upload
+// 上传走 multipart：file + name + category_id（必选） + is_public（'1'/'0'），见 handlers/resources.zig upload
 const upVisible = ref(false)
 const uploading = ref(false)
 const fileInput = ref(null)
@@ -99,17 +148,21 @@ async function submitUpload() {
     ElMessage.warning('请输入资料名')
     return
   }
+  if (!upForm.category_id) {
+    ElMessage.warning('请选择资料分类')
+    return
+  }
   const fd = new FormData()
   fd.append('file', pickedFile)
   fd.append('name', upForm.name.trim())
-  fd.append('category_id', String(upForm.category_id || 0))
+  fd.append('category_id', String(upForm.category_id))
   fd.append('is_public', upForm.is_public ? '1' : '0')
   uploading.value = true
   try {
     await adminApi.uploadResource(fd)
     ElMessage.success('上传成功')
     upVisible.value = false
-    await load()
+    await Promise.all([load(), loadStats()])
   } catch {} finally {
     uploading.value = false
   }
@@ -147,7 +200,7 @@ async function submit() {
     })
     ElMessage.success('已保存')
     dlgVisible.value = false
-    await load()
+    await Promise.all([load(), loadStats()])
   } catch {} finally {
     saving.value = false
   }
@@ -161,76 +214,106 @@ async function remove(row) {
   try {
     await adminApi.deleteResource(row.id)
     ElMessage.success('已删除')
-    await load()
+    await Promise.all([load(), loadStats()])
   } catch {}
 }
 
 onMounted(async () => {
-  await loadCats()
+  await Promise.all([loadCats(), loadStats()])
   await load()
 })
 </script>
 <template>
-  <div>
-    <div class="toolbar">
-      <el-tree-select v-model="query.category_id" :data="treeData" :props="treeProps" check-strictly
-        clearable placeholder="全部分类" class="w180" @change="search" />
-      <el-select v-model="query.type" class="w130" placeholder="类型" @change="search">
-        <el-option label="全部类型" value="" />
-        <el-option v-for="t in typeOptions" :key="t.value" :label="t.label" :value="t.value" />
-      </el-select>
-      <el-input v-model="query.keyword" class="w200" placeholder="名称关键词" clearable
-        @keyup.enter="search" @clear="search">
-        <template #prefix><el-icon><Search /></el-icon></template>
-      </el-input>
-      <el-button type="primary" @click="search">查询</el-button>
-      <el-button class="create-btn" type="primary" @click="openUpload">上传资料</el-button>
+  <div class="res-layout">
+    <el-card class="cat-panel" shadow="never">
+      <template #header><span class="cat-title">资料分类</span></template>
+      <el-tree
+        ref="treeRef"
+        :data="navTree"
+        :props="treeProps"
+        node-key="id"
+        highlight-current
+        default-expand-all
+        :expand-on-click-node="false"
+        @node-click="onCatNode"
+      >
+        <template #default="{ data }">
+          <span class="tree-node">
+            <span class="tree-label">{{ data.name }}</span>
+            <span class="tree-cnt">{{ countOf(data.id) }}</span>
+          </span>
+        </template>
+      </el-tree>
+    </el-card>
+
+    <div class="main-panel">
+      <div class="toolbar">
+        <el-select v-model="query.type" class="w130" placeholder="类型" @change="search">
+          <el-option label="全部类型" value="" />
+          <el-option v-for="t in typeOptions" :key="t.value" :label="t.label" :value="t.value" />
+        </el-select>
+        <el-input v-model="query.keyword" class="w200" placeholder="名称关键词" clearable
+          @keyup.enter="search" @clear="search">
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
+        <el-tooltip content="仅选中分类时生效" :disabled="!query.category_id">
+          <span class="sub-switch">
+            <el-switch v-model="query.include_sub" :disabled="!query.category_id" size="small" @change="search" />
+            <span class="hint">含子分类</span>
+          </span>
+        </el-tooltip>
+        <el-button type="primary" @click="search">查询</el-button>
+        <el-button class="create-btn" type="primary" @click="openUpload">上传资料</el-button>
+      </div>
+
+      <div class="table-box">
+        <el-table ref="tableRef" v-loading="loading" :data="items" stripe height="100%">
+          <el-table-column prop="id" label="ID" width="70" />
+          <el-table-column prop="name" label="资料名" min-width="180" show-overflow-tooltip />
+          <el-table-column label="分类" width="150" show-overflow-tooltip>
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.category_id ? 'info' : 'warning'" effect="plain">
+                {{ catLabel(row.category_id) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="orig_name" label="原文件名" min-width="160" show-overflow-tooltip />
+          <el-table-column label="类型" width="100">
+            <template #default="{ row }">
+              <el-tag size="small" :type="typeMap[row.rtype]?.type || 'info'">
+                {{ typeMap[row.rtype]?.label || row.rtype }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="大小" width="100">
+            <template #default="{ row }">{{ fileSize(row.size) }}</template>
+          </el-table-column>
+          <el-table-column label="可见性" width="90">
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.is_public ? 'success' : 'info'">
+                {{ row.is_public ? '公开' : '私密' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="uploader_id" label="上传人" width="80" />
+          <el-table-column label="上传时间" width="150">
+            <template #default="{ row }">{{ datetime(row.created_at) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="200" fixed="right">
+            <template #default="{ row }">
+              <el-link type="primary" :href="downloadUrl(row)" target="_blank" class="dl-link">下载</el-link>
+              <el-button size="small" @click="openEdit(row)">编辑</el-button>
+              <el-button size="small" type="danger" plain @click="remove(row)">删除</el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <el-empty :description="query.category_id ? `「${currentCatName()}」下暂无资料` : '暂无资料'" />
+          </template>
+        </el-table>
+      </div>
+
+      <PaginationBar v-model:page="query.page" :total="total" :size="query.size" @change="onPage" />
     </div>
-
-    <el-table v-loading="loading" :data="items" stripe>
-      <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column prop="name" label="资料名" min-width="200" show-overflow-tooltip />
-      <el-table-column prop="orig_name" label="原文件名" min-width="180" show-overflow-tooltip />
-      <el-table-column label="类型" width="100">
-        <template #default="{ row }">
-          <el-tag size="small" :type="typeMap[row.rtype]?.type || 'info'">
-            {{ typeMap[row.rtype]?.label || row.rtype }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="大小" width="100">
-        <template #default="{ row }">{{ fileSize(row.size) }}</template>
-      </el-table-column>
-      <el-table-column label="可见性" width="90">
-        <template #default="{ row }">
-          <el-tag size="small" :type="row.is_public ? 'success' : 'info'">
-            {{ row.is_public ? '公开' : '私密' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="uploader_id" label="上传人" width="80" />
-      <el-table-column label="上传时间" width="150">
-        <template #default="{ row }">{{ datetime(row.created_at) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
-        <template #default="{ row }">
-          <el-link type="primary" :href="downloadUrl(row)" target="_blank" class="dl-link">下载</el-link>
-          <el-button size="small" @click="openEdit(row)">编辑</el-button>
-          <el-button size="small" type="danger" plain @click="remove(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    <el-empty v-if="!loading && !items.length" description="暂无资料" />
-
-    <el-pagination
-      v-if="total > query.size"
-      class="pager"
-      layout="prev, pager, next, total"
-      :total="total"
-      :page-size="query.size"
-      :current-page="query.page"
-      @current-change="(p) => { query.page = p; load() }"
-    />
 
     <el-dialog v-model="upVisible" title="上传资料" width="520" :close-on-click-modal="false">
       <el-form label-width="90px">
@@ -241,16 +324,16 @@ onMounted(async () => {
         <el-form-item label="资料名" required>
           <el-input v-model="upForm.name" :maxlength="200" placeholder="展示名称，默认用文件名" />
         </el-form-item>
-        <el-form-item label="分类">
+        <el-form-item label="分类" required>
           <el-tree-select v-model="upForm.category_id" :data="treeData" :props="treeProps" check-strictly
-            clearable placeholder="可留空" class="w100" />
+            clearable placeholder="必选，可选父级或子分类" class="w100" />
         </el-form-item>
         <el-form-item label="公开">
           <el-switch v-model="upForm.is_public" :active-value="1" :inactive-value="0" />
           <span class="hint">公开 = 游客可下载；私密需登录</span>
         </el-form-item>
       </el-form>
-      <p class="hint block">单文件上限 200MB；视频/PDF 等上传后可在课时里按资源 ID 关联。</p>
+      <p class="hint block">单文件上限 200MB；分类数据来自「分类管理」。</p>
       <template #footer>
         <el-button @click="upVisible = false">取消</el-button>
         <el-button type="primary" :loading="uploading" @click="submitUpload">上传</el-button>
@@ -264,7 +347,7 @@ onMounted(async () => {
         </el-form-item>
         <el-form-item label="分类">
           <el-tree-select v-model="form.category_id" :data="treeData" :props="treeProps" check-strictly
-            clearable placeholder="可留空" class="w100" />
+            clearable placeholder="可留空（未分类）" class="w100" />
         </el-form-item>
         <el-form-item label="类型">
           <el-select v-model="form.rtype" class="w180">
@@ -284,16 +367,24 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.toolbar { display: flex; gap: 10px; margin-bottom: 14px; }
+.res-layout { display: flex; gap: 14px; align-items: stretch; flex: 1; min-height: 0; overflow: hidden; }
+.cat-panel { width: 250px; flex: none; display: flex; flex-direction: column; }
+.cat-panel :deep(.el-card__body) { padding: 8px 6px; flex: 1; min-height: 0; overflow: auto; }
+.cat-title { font-weight: 600; }
+.tree-node { display: flex; align-items: center; justify-content: space-between; width: 100%; padding-right: 8px; }
+.tree-cnt { margin-left: 8px; font-size: 12px; color: var(--el-text-color-secondary); }
+.main-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; flex: none; }
 .w130 { width: 130px; }
-.w180 { width: 180px; }
 .w200 { width: 200px; }
 .w100 { width: 100%; }
+.w180 { width: 180px; }
 .create-btn { margin-left: auto; }
+.sub-switch { display: inline-flex; align-items: center; gap: 4px; }
 .file-input { width: 100%; }
 .picked { margin-top: 6px; font-size: 12px; color: var(--el-text-color-secondary); }
 .hint { font-size: 12px; color: var(--el-text-color-secondary); }
 .hint.block { margin: 4px 0 0; }
 .dl-link { margin-right: 12px; }
-.pager { margin-top: 12px; justify-content: center; }
+.table-box { flex: 1; min-height: 0; }
 </style>

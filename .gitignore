@@ -11,3 +11,5 @@
 
 # 集成测试临时数据库
 /.test_data/*
+bug.md
+dist/*

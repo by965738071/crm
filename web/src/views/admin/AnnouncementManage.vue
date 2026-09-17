@@ -1,10 +1,12 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi } from '../../api'
 import { datetime } from '../../utils'
+import PaginationBar from '../../components/PaginationBar.vue'
 
 const loading = ref(false)
+const tableRef = ref(null)
 const items = ref([])
 const total = ref(0)
 const query = reactive({ status: '', keyword: '', page: 1, size: 20 })
@@ -23,6 +25,13 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+async function onPage(p) {
+  query.page = p
+  await load()
+  await nextTick()
+  tableRef.value?.setScrollTop(0)
 }
 
 function search() {
@@ -107,7 +116,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div>
+  <div class="page-list">
     <div class="toolbar">
       <el-select v-model="query.status" class="w130" placeholder="状态" @change="search">
         <el-option label="全部状态" value="" />
@@ -122,7 +131,8 @@ onMounted(load)
       <el-button class="create-btn" type="primary" @click="openCreate">新建公告</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="items" stripe>
+    <div class="table-wrap">
+    <el-table ref="tableRef" v-loading="loading" :data="items" stripe height="100%">
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
       <el-table-column prop="content" label="内容" min-width="260" show-overflow-tooltip />
@@ -149,18 +159,13 @@ onMounted(load)
           <el-button size="small" type="danger" plain @click="remove(row)">删除</el-button>
         </template>
       </el-table-column>
+      <template #empty>
+        <el-empty description="暂无公告" />
+      </template>
     </el-table>
-    <el-empty v-if="!loading && !items.length" description="暂无公告" />
+    </div>
 
-    <el-pagination
-      v-if="total > query.size"
-      class="pager"
-      layout="prev, pager, next, total"
-      :total="total"
-      :page-size="query.size"
-      :current-page="query.page"
-      @current-change="(p) => { query.page = p; load() }"
-    />
+    <PaginationBar v-model:page="query.page" :total="total" :size="query.size" @change="onPage" />
 
     <el-dialog v-model="dlgVisible" :title="editingId ? '编辑公告' : '新建公告'" width="640">
       <el-form label-width="70px">
@@ -186,9 +191,10 @@ onMounted(load)
 </template>
 
 <style scoped>
-.toolbar { display: flex; gap: 10px; margin-bottom: 14px; }
+.page-list { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex: none; }
 .w130 { width: 130px; }
 .w200 { width: 200px; }
 .create-btn { margin-left: auto; }
-.pager { margin-top: 12px; justify-content: center; }
+.table-wrap { flex: 1; min-height: 0; }
 </style>

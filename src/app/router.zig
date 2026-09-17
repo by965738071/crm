@@ -14,6 +14,7 @@ const questions = @import("../web/handlers/questions.zig");
 const practice = @import("../web/handlers/practice.zig");
 const exams = @import("../web/handlers/exams.zig");
 const orders = @import("../web/handlers/orders.zig");
+const images = @import("../web/handlers/images.zig");
 const announcements = @import("../web/handlers/announcements.zig");
 const favorites = @import("../web/handlers/favorites.zig");
 const notes = @import("../web/handlers/notes.zig");
@@ -27,6 +28,8 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
 
     // 前端静态资源（web/dist 构建产物）
     try router.route(.GET, "/static/*", framework.Handler.initSingleton(&st.static_assets));
+    // 题目图片静态资源（data/uploads/images，仅暴露随机文件名）
+    try router.route(.GET, "/uploads/images/*", framework.Handler.initSingleton(&st.image_files));
     // 根路径先返回前端占位页；SPA 回退路由在第 8 期前端接入时完善
     try router.route(.GET, "/", framework.Handler.initSingleton(&st.static_index));
 
@@ -102,6 +105,7 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
     try api.route(.GET, "/courses", framework.Handler.fromFn(courses.list));
     try api.route(.GET, "/courses/:id", framework.Handler.fromFn(courses.detail));
     try admin.route(.GET, "/courses", framework.Handler.fromFn(courses.adminList));
+    try admin.route(.GET, "/course-stats", framework.Handler.fromFn(courses.adminCourseStats));
     try admin.route(.GET, "/courses/:id", framework.Handler.fromFn(courses.adminGet));
     try admin.route(.POST, "/courses", framework.Handler.fromFn(courses.adminCreate));
     try admin.route(.PUT, "/courses/:id", framework.Handler.fromFn(courses.adminUpdate));
@@ -117,6 +121,7 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
     try api.route(.GET, "/resources", framework.Handler.fromFn(resources.list));
     try api.route(.GET, "/resources/:id/download", framework.Handler.fromFn(resources.download));
     try admin.route(.GET, "/resources", framework.Handler.fromFn(resources.adminList));
+    try admin.route(.GET, "/resource-stats", framework.Handler.fromFn(resources.adminCategoryStats));
     try admin.route(.GET, "/resources/:id", framework.Handler.fromFn(resources.adminGet));
     try admin.route(.POST, "/upload", framework.Handler.fromFn(resources.upload));
     try admin.route(.POST, "/resources", framework.Handler.fromFn(resources.metaCreate));
@@ -125,6 +130,8 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
 
     // ---------------- 题库管理（第 4 期 M-D） ----------------
     try admin.route(.GET, "/questions", framework.Handler.fromFn(questions.adminList));
+    try admin.route(.GET, "/question-stats", framework.Handler.fromFn(questions.adminCategoryStats));
+    try admin.route(.POST, "/upload-image", framework.Handler.fromFn(images.uploadImage));
     try admin.route(.POST, "/questions", framework.Handler.fromFn(questions.adminCreate));
     try admin.route(.POST, "/questions/import", framework.Handler.fromFn(questions.adminImport));
     try admin.route(.GET, "/questions/:id", framework.Handler.fromFn(questions.adminGet));
@@ -133,6 +140,7 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
 
     // 模拟考试管理（第 5 期 M-E）
     try admin.route(.GET, "/exams", framework.Handler.fromFn(exams.adminList));
+    try admin.route(.GET, "/exam-stats", framework.Handler.fromFn(exams.adminCategoryStats));
     try admin.route(.POST, "/exams", framework.Handler.fromFn(exams.adminCreate));
     try admin.route(.GET, "/exams/:id", framework.Handler.fromFn(exams.adminGet));
     try admin.route(.PUT, "/exams/:id", framework.Handler.fromFn(exams.adminUpdate));

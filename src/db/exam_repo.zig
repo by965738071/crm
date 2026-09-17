@@ -218,6 +218,8 @@ pub const ExamListOpts = struct {
     keyword: []const u8 = "",
     user_id: i64 = 0, // >0 时附带个人成绩子查询（学员端）
     published_only: bool = false, // 学员端 = true
+    /// true = category_id 按分类子树过滤（配合递归 CTE）
+    include_subtree: bool = false,
 };
 
 pub const ExamRow = struct {
@@ -248,23 +250,68 @@ pub const ExamList = struct {
 
 /// 管理端/学员端共用一套 SQL：个人统计子查询恒计算（user_id=0 时结果为 0/-1，
 /// 无行可扫，成本与 EXISTS 分支相当），换取单条 SQL 简单性。
+/// 子树过滤：各套 SQL 全部在 comptime 拼成常量（参数个数一致 ?1..?8），运行时只做常量选择。
+/// 根分类绑 ?1；depth < 20 防 categories 父子环时无限递归。
+const cte_subtree =
+    "WITH RECURSIVE sub(id, depth) AS (" ++
+    " SELECT ?1, 0" ++
+    " UNION ALL" ++
+    " SELECT c.id, s.depth + 1 FROM categories c JOIN sub s ON c.parent_id = s.id" ++
+    " WHERE c.deleted = 0 AND s.depth < 20) ";
+
+const exam_where =
+    "deleted = 0 AND (?1 = 0 OR category_id = ?1) AND " ++
+        "(?2 = '' OR status = ?2) AND (?3 = '' OR (?3 = 'published' AND status = 'published')) AND " ++
+        "(?4 = '' OR title LIKE ?5 ESCAPE '\\')";
+
+const exam_where_subtree =
+    "deleted = 0 AND (?1 = 0 OR category_id IN (SELECT id FROM sub)) AND " ++
+        "(?2 = '' OR status = ?2) AND (?3 = '' OR (?3 = 'published' AND status = 'published')) AND " ++
+        "(?4 = '' OR title LIKE ?5 ESCAPE '\\')";
+
+const exam_count_exact = "SELECT COUNT(*) FROM exams WHERE " ++ exam_where;
+const exam_count_subtree = cte_subtree ++ "SELECT COUNT(*) FROM exams WHERE " ++ exam_where_subtree;
+const exam_rows_exact =
+    "SELECT " ++ exam_cols ++ ", " ++
+        "(SELECT COUNT(*) FROM exam_attempts ea WHERE ea.exam_id = exams.id AND ea.user_id = ?6), " ++
+        "(SELECT COALESCE(MAX(score), -1) FROM exam_attempts eb WHERE eb.exam_id = exams.id AND eb.user_id = ?6 AND eb.submitted_at > 0) " ++
+        "FROM exams WHERE " ++ exam_where ++ " ORDER BY id DESC LIMIT ?7 OFFSET ?8";
+const exam_rows_subtree =
+    cte_subtree ++ "SELECT " ++ exam_cols ++ ", " ++
+        "(SELECT COUNT(*) FROM exam_attempts ea WHERE ea.exam_id = exams.id AND ea.user_id = ?6), " ++
+        "(SELECT COALESCE(MAX(score), -1) FROM exam_attempts eb WHERE eb.exam_id = exams.id AND eb.user_id = ?6 AND eb.submitted_at > 0) " ++
+        "FROM exams WHERE " ++ exam_where_subtree ++ " ORDER BY id DESC LIMIT ?7 OFFSET ?8";
+
+/// 分类维度试卷计数（不含软删）。category_id=0 表示未分类。
+pub const CategoryCount = struct {
+    category_id: i64,
+    count: i64,
+};
+
+pub fn countByCategory(dbh: *db.Db, a: std.mem.Allocator) ![]CategoryCount {
+    var items: std.ArrayList(CategoryCount) = .empty;
+    var rows = try dbh.conn.rows(
+        "SELECT category_id, COUNT(*) FROM exams WHERE deleted = 0 GROUP BY category_id",
+        .{},
+    );
+    defer rows.deinit();
+    while (rows.next()) |row| {
+        try items.append(a, .{ .category_id = row.int(0), .count = row.int(1) });
+    }
+    if (rows.err) |e| return e;
+    return items.items;
+}
+
 pub fn list(dbh: *db.Db, a: std.mem.Allocator, o: ExamListOpts) !ExamList {
     const like = try likePattern(a, o.keyword);
-    const where =
-        "deleted = 0 AND (?1 = 0 OR category_id = ?1) AND " ++
-            "(?2 = '' OR status = ?2) AND (?3 = '' OR (?3 = 'published' AND status = 'published')) AND " ++
-            "(?4 = '' OR title LIKE ?5 ESCAPE '\\')";
     const total = (try dbh.scalarInt(
-        "SELECT COUNT(*) FROM exams WHERE " ++ where,
+        if (o.include_subtree) exam_count_subtree else exam_count_exact,
         .{ o.category_id, if (o.published_only) "" else o.status, if (o.published_only) "published" else "", o.keyword, like },
     )) orelse 0;
 
     var items: std.ArrayList(ExamRow) = .empty;
     var rows = try dbh.conn.rows(
-        "SELECT " ++ exam_cols ++ ", " ++
-            "(SELECT COUNT(*) FROM exam_attempts ea WHERE ea.exam_id = exams.id AND ea.user_id = ?6), " ++
-            "(SELECT COALESCE(MAX(score), -1) FROM exam_attempts eb WHERE eb.exam_id = exams.id AND eb.user_id = ?6 AND eb.submitted_at > 0) " ++
-            "FROM exams WHERE " ++ where ++ " ORDER BY id DESC LIMIT ?7 OFFSET ?8",
+        if (o.include_subtree) exam_rows_subtree else exam_rows_exact,
         .{
             o.category_id,
             if (o.published_only) "" else o.status,
@@ -749,14 +796,65 @@ fn openTestDb(a: std.mem.Allocator, path: [:0]const u8) !db.Db {
     std.Io.Dir.cwd().deleteFile(std.testing.io, path) catch {};
     var dbh = try db.Db.open(a, path);
     for (test_sqls) |sql| try dbh.exec(sql, .{});
+    try dbh.exec(test_sql_cats, .{});
     return dbh;
 }
+
+const test_sql_cats =
+    \\CREATE TABLE IF NOT EXISTS categories (
+    \\  id INTEGER PRIMARY KEY AUTOINCREMENT,
+    \\  parent_id INTEGER NOT NULL DEFAULT 0,
+    \\  name TEXT NOT NULL,
+    \\  sort INTEGER NOT NULL DEFAULT 0,
+    \\  deleted INTEGER NOT NULL DEFAULT 0
+    \\)
+;
 
 fn makeQuestion(dbh: *db.Db, a: std.mem.Allocator, cat: i64, qtype: []const u8, stem: []const u8, answer: []const u8) !i64 {
     var opts: []const []const u8 = &.{};
     if (!std.mem.eql(u8, qtype, "judge")) opts = &.{ "opA", "opB", "opC" };
     const c = try question_repo.validateQuestion(a, .{ .category_id = cat, .type = qtype, .stem = stem, .options = opts, .answer = answer });
     return question_repo.create(dbh, .{ .q = c, .creator_id = 1, .now = 1 });
+}
+
+test "exam_repo 子树过滤与分类计数" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+
+    var dbh = try openTestDb(a, ".test_data/exam_repo_subtree_test.db");
+    defer dbh.close();
+
+    // 分类树 30 -> 31 -> 32；exam A 挂 cat30（已上架），exam B 挂 cat32（草稿），无关卷挂 cat40
+    try dbh.exec("INSERT INTO categories (id, parent_id, name) VALUES (30, 0, '根'), (31, 30, '子'), (32, 31, '孙')", .{});
+    const rules = [_]Rule{.{ .category_id = 31, .count = 2, .score_each = 10 }};
+    const e1 = try validateExam(a, .{ .category_id = 30, .title = "试卷A", .duration_min = 30, .total_score = 20, .pass_score = 12, .status = "published", .rules = &rules });
+    _ = try create(&dbh, e1, 1);
+    const e2 = try validateExam(a, .{ .category_id = 32, .title = "试卷B", .duration_min = 30, .total_score = 20, .pass_score = 12, .status = "draft", .rules = &rules });
+    _ = try create(&dbh, e2, 1);
+    const e3 = try validateExam(a, .{ .category_id = 40, .title = "无关卷", .duration_min = 30, .total_score = 20, .pass_score = 12, .status = "published", .rules = &rules });
+    _ = try create(&dbh, e3, 1);
+
+    // 精确：cat30 只有试卷A；子树：含 cat32 的试卷B
+    try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{ .category_id = 30 })).total);
+    try std.testing.expectEqual(@as(i64, 2), (try list(&dbh, a, .{ .category_id = 30, .include_subtree = true })).total);
+    try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{ .category_id = 32, .include_subtree = true })).total);
+    // 子树 + 管理端状态过滤
+    try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{ .category_id = 30, .status = "draft", .include_subtree = true })).total);
+    // 子树 + 学员端仅已发布
+    try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{ .category_id = 30, .published_only = true, .include_subtree = true })).total);
+
+    // 分类计数（未删）
+    const stats = try countByCategory(&dbh, a);
+    var found = std.AutoHashMap(i64, i64).init(a);
+    defer found.deinit();
+    for (stats) |s| try found.put(s.category_id, s.count);
+    try std.testing.expectEqual(@as(?i64, 1), found.get(30));
+    try std.testing.expectEqual(@as(?i64, 1), found.get(32));
+    try std.testing.expectEqual(@as(?i64, 1), found.get(40));
+    try std.testing.expectEqual(@as(?i64, null), found.get(31));
+
+    std.Io.Dir.cwd().deleteFile(std.testing.io, ".test_data/exam_repo_subtree_test.db") catch {};
 }
 
 test "validateExam 规则与分值一致性" {

@@ -1,9 +1,11 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, reactive, ref } from 'vue'
 import { adminApi } from '../../api'
 import { datetime } from '../../utils'
+import PaginationBar from '../../components/PaginationBar.vue'
 
 const loading = ref(false)
+const tableRef = ref(null)
 const items = ref([])
 const total = ref(0)
 const query = reactive({ user_id: '', page: 1, size: 50 })
@@ -23,6 +25,13 @@ async function load() {
   }
 }
 
+async function onPage(p) {
+  query.page = p
+  await load()
+  await nextTick()
+  tableRef.value?.setScrollTop(0)
+}
+
 function search() {
   query.page = 1
   load()
@@ -32,7 +41,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div>
+  <div class="page-list">
     <div class="toolbar">
       <el-input
         v-model="query.user_id"
@@ -46,7 +55,8 @@ onMounted(load)
       <span class="tip">审计日志由 audit_middleware 实时写入；运行日志文件见 data/logs/app.log（框架 Logger 自动轮转）</span>
     </div>
 
-    <el-table v-loading="loading" :data="items" stripe>
+    <div class="table-wrap">
+    <el-table ref="tableRef" v-loading="loading" :data="items" stripe height="100%">
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="user_id" label="用户 ID" width="90" />
       <el-table-column prop="action" label="动作" width="100">
@@ -59,24 +69,20 @@ onMounted(load)
       <el-table-column label="时间" width="170">
         <template #default="{ row }">{{ datetime(row.created_at) }}</template>
       </el-table-column>
+      <template #empty>
+        <el-empty description="暂无审计日志" />
+      </template>
     </el-table>
-    <el-empty v-if="!loading && !items.length" description="暂无审计日志" />
+    </div>
 
-    <el-pagination
-      v-if="total > query.size"
-      class="pager"
-      layout="prev, pager, next, total"
-      :total="total"
-      :page-size="query.size"
-      :current-page="query.page"
-      @current-change="(p) => { query.page = p; load() }"
-    />
+    <PaginationBar v-model:page="query.page" :total="total" :size="query.size" @change="onPage" />
   </div>
 </template>
 
 <style scoped>
-.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.page-list { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex: none; }
 .w180 { width: 180px; }
 .tip { color: var(--el-text-color-secondary); font-size: 12px; }
-.pager { margin-top: 12px; justify-content: center; }
+.table-wrap { flex: 1; min-height: 0; }
 </style>

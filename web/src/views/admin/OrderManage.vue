@@ -1,10 +1,12 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi } from '../../api'
 import { datetime } from '../../utils'
+import PaginationBar from '../../components/PaginationBar.vue'
 
 const loading = ref(false)
+const tableRef = ref(null)
 const items = ref([])
 const total = ref(0)
 const query = reactive({ status: '', keyword: '', user_id: 0, page: 1, size: 20 })
@@ -38,9 +40,25 @@ async function load() {
   }
 }
 
+function triggerSlide() {
+  const el = tableRef.value?.$el
+  if (!el) return
+  el.classList.remove('slide-enter')
+  void el.offsetWidth  // 强制 reflow 重启动画
+  el.classList.add('slide-enter')
+}
+
+async function onPage(p) {
+  query.page = p
+  await load()
+  await nextTick()
+  tableRef.value?.setScrollTop(0)
+  triggerSlide()
+}
+
 function search() {
   query.page = 1
-  load()
+  load().then(() => nextTick().then(triggerSlide))
 }
 
 // 标记已支付
@@ -118,7 +136,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div>
+  <div class="page-list">
     <div class="toolbar">
       <el-radio-group v-model="query.status" @change="search">
         <el-radio-button value="">全部</el-radio-button>
@@ -148,7 +166,8 @@ onMounted(load)
       <el-button class="create-btn" type="primary" @click="openCreate">代下单</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="items" stripe>
+    <div class="table-wrap">
+    <el-table ref="tableRef" v-loading="loading" :data="items" stripe height="100%">
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="order_no" label="订单号" width="210" show-overflow-tooltip />
       <el-table-column label="用户" min-width="160">
@@ -188,18 +207,13 @@ onMounted(load)
           </template>
         </template>
       </el-table-column>
+      <template #empty>
+        <el-empty description="暂无订单" />
+      </template>
     </el-table>
-    <el-empty v-if="!loading && !items.length" description="暂无订单" />
+    </div>
 
-    <el-pagination
-      v-if="total > query.size"
-      class="pager"
-      layout="prev, pager, next, total"
-      :total="total"
-      :page-size="query.size"
-      :current-page="query.page"
-      @current-change="(p) => { query.page = p; load() }"
-    />
+    <PaginationBar v-model:page="query.page" :total="total" :size="query.size" @change="onPage" />
 
     <el-dialog v-model="payVisible" title="标记已支付" width="460">
       <el-form label-width="80px">
@@ -237,7 +251,8 @@ onMounted(load)
 </template>
 
 <style scoped>
-.toolbar { display: flex; gap: 10px; margin-bottom: 14px; }
+.page-list { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex: none; }
 .w200 { width: 200px; }
 .w140 { width: 140px; }
 .w100 { width: 100%; }
@@ -245,5 +260,5 @@ onMounted(load)
 .amount { color: var(--el-color-danger); font-weight: 600; }
 .sub-text { font-size: 12px; color: var(--el-text-color-secondary); }
 .hint { margin: 4px 0 0; font-size: 12px; color: var(--el-text-color-secondary); }
-.pager { margin-top: 12px; justify-content: center; }
+.table-wrap { flex: 1; min-height: 0; }
 </style>

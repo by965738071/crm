@@ -7,6 +7,12 @@ const std = @import("std");
 /// 第一期上传上限（与 plan.md 风险表一致：先限 200MB，不支持流式写盘）
 pub const max_upload_size: usize = 200 * 1024 * 1024;
 
+/// 题干/选项图片上传上限（仅 png/jpg/jpeg/gif/webp，见 handlers/images.zig）
+pub const max_image_size: usize = 5 * 1024 * 1024;
+
+/// 题目图片落盘根目录（相对 cwd）。经 /uploads/images/* 静态路由公开访问。
+pub const images_dir = "data/uploads/images";
+
 /// data_dir（app.zig 常量）当前只有这一个落盘根
 pub const data_dir = "data";
 
@@ -109,12 +115,34 @@ pub const SaveResult = struct {
     size: i64,
 };
 
-/// 把上传字节落盘。base 是上传根目录（如 `data/uploads`），须已存在（app 启动时建 data_dir）。
-/// safe_name 是 framework safeBaseName 清洗后的基名（或自己生成的名字）；data 超出上限返回 error.FileTooBig。
+/// 保存普通资源。base 是磁盘根目录（如 `data/uploads`）；rel_path 以 `uploads/...` 开头。
 pub fn saveUpload(
     io: std.Io,
     a: std.mem.Allocator,
     base: []const u8,
+    safe_name: []const u8,
+    data: []const u8,
+) !SaveResult {
+    return saveUnder(io, a, base, "uploads", safe_name, data);
+}
+
+/// 题目图片上传：落盘 `data/uploads/images/<yyyy-mm>/<hex>.<ext>`，
+/// 返回相对路径 `uploads/images/<yyyy-mm>/<hex>.<ext>`（对外 URL 前缀 /uploads/images/）。
+pub fn saveImage(
+    io: std.Io,
+    a: std.mem.Allocator,
+    safe_name: []const u8,
+    data: []const u8,
+) !SaveResult {
+    if (data.len > max_image_size) return error.FileTooBig;
+    return saveUnder(io, a, images_dir, "uploads/images", safe_name, data);
+}
+
+fn saveUnder(
+    io: std.Io,
+    a: std.mem.Allocator,
+    base: []const u8,
+    rel_prefix: []const u8,
     safe_name: []const u8,
     data: []const u8,
 ) !SaveResult {
@@ -128,25 +156,33 @@ pub fn saveUpload(
     };
 
     // 随机文件名：16 字节 hex，保留原扩展名
-    var rnd: [16]u8 = undefined;
-    try std.Io.randomSecure(io, &rnd);
-    const hex = try std.fmt.allocPrint(a, "{x}", .{&rnd});
+    var rnd_buf: [16]u8 = undefined;
+    try std.Io.randomSecure(io, &rnd_buf);
     const ext = extensionOf(safe_name);
-    const stored_name = if (ext.len > 0)
-        try std.fmt.allocPrint(a, "{s}.{s}", .{ hex, ext })
-    else
-        try a.dupe(u8, hex);
-    const full_path = try std.fmt.allocPrint(a, "{s}/{s}", .{ sub, stored_name });
-
-    const file = std.Io.Dir.cwd().createFile(io, full_path, .{}) catch |err| switch (err) {
-        error.PathAlreadyExists => return error.FileTooBig, // 理论上撞到随机名，重试语义留给调用方
-        else => return err,
-    };
+    var stored_name: []const u8 = undefined;
+    var file: std.Io.File = undefined;
+    // 若随机文件名意外撞车，换新随机名重试（不应误报 FileTooBig）
+    while (true) {
+        const hex = try std.fmt.allocPrint(a, "{x}", .{&rnd_buf});
+        stored_name = if (ext.len > 0)
+            try std.fmt.allocPrint(a, "{s}.{s}", .{ hex, ext })
+        else
+            try a.dupe(u8, hex);
+        const full_path = try std.fmt.allocPrint(a, "{s}/{s}", .{ sub, stored_name });
+        file = std.Io.Dir.cwd().createFile(io, full_path, .{}) catch |err| switch (err) {
+            error.PathAlreadyExists => {
+                try std.Io.randomSecure(io, &rnd_buf);
+                continue;
+            },
+            else => return err,
+        };
+        break;
+    }
     defer file.close(io);
     try file.writeStreamingAll(io, data);
 
     return .{
-        .rel_path = try std.fmt.allocPrint(a, "uploads/{s}/{s}", .{ month, stored_name }),
+        .rel_path = try std.fmt.allocPrint(a, "{s}/{s}/{s}", .{ rel_prefix, month, stored_name }),
         .size = @intCast(data.len),
     };
 }

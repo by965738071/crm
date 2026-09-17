@@ -30,6 +30,8 @@ pub const State = struct {
 
     static_index: framework.StaticFileServer,
     static_assets: framework.StaticFileServer,
+    /// 题目图片静态服务（仅暴露 data/uploads/images，随机文件名防猜测）
+    image_files: framework.StaticFileServer,
     /// SPA 深链回退（index.html 启动时读入；前端未构建时为空，退回 JSON 404）
     spa: respond.SpaFallback = .{},
 

@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { categoryApi, courseApi } from '../../api'
 import { money } from '../../utils'
+import PaginationBar from '../../components/PaginationBar.vue'
 
 const router = useRouter()
 const loading = ref(false)
@@ -92,14 +93,7 @@ onMounted(async () => {
       <el-empty v-if="!loading && !items.length" description="没有找到课程" />
     </div>
 
-    <el-pagination
-      v-if="total > query.size"
-      layout="prev, pager, next, total"
-      :total="total"
-      :page-size="query.size"
-      :current-page="query.page"
-      @current-change="(p) => { query.page = p; load() }"
-    />
+    <PaginationBar v-model:page="query.page" :total="total" :size="query.size" @change="load" />
   </div>
 </template>
 

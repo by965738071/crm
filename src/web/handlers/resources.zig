@@ -1,10 +1,11 @@
 //! 资料库 handler。
 //!   公开：
-//!     GET /api/resources（游客只见公开；登录可见全部）
+//!     GET /api/resources（游客只见公开；登录可见全部；?category_id=&sub=1 可按分类子树过滤）
 //!     GET /api/resources/:id/download（公开资源直接下；非公开需登录，报名鉴权 phase 3 接入）
 //!   管理端（/api/admin）：
-//!     GET  /resources     列表（全量，?category_id=&type=&keyword=&status=）
-//!     POST /upload        multipart 上传（字段：file, name?, category_id, is_public）→ 落盘+建资源
+//!     GET  /resources     列表（全量，?category_id=&sub=1&type=&keyword=）
+//!     GET  /resource-stats 各分类资料数（含未分类 category_id=0）
+//!     POST /upload        multipart 上传（字段：file, name?, category_id（必选）, is_public）→ 落盘+建资源
 //!     POST /resources     纯元数据建（用于已存在于磁盘的路径）
 //!     PUT  /resources/:id 元数据更新
 //!     DELETE /resources/:id 软删
@@ -60,6 +61,7 @@ pub fn list(ctx: *framework.Context, res: *framework.Response) !void {
     const cu = try authm.currentUserOptional(ctx, &st.session);
     // 游客只看到公开资源；登录用户可见全部（下载仍按 is_public/enrollment 鉴权）
     const items_only_public = cu == null;
+    const include_subtree = common.parseQueryInt(ctx, "sub", 0, 1, 0) == 1;
 
     var r: resource_repo.ResourceList = undefined;
     if (items_only_public) {
@@ -67,6 +69,7 @@ pub fn list(ctx: *framework.Context, res: *framework.Response) !void {
             .page = page,
             .size = size,
             .category_id = category_id,
+            .include_subtree = include_subtree,
             .rtype = rtype,
             .keyword = keyword,
         });
@@ -75,6 +78,7 @@ pub fn list(ctx: *framework.Context, res: *framework.Response) !void {
             .page = page,
             .size = size,
             .category_id = category_id,
+            .include_subtree = include_subtree,
             .rtype = rtype,
             .keyword = keyword,
         });
@@ -150,6 +154,7 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
     const page = common.parseQueryInt(ctx, "page", 1, 100, 1);
     const size = common.parseQueryInt(ctx, "size", 20, 100, 1);
     const category_id = common.parseQueryInt(ctx, "category_id", 0, 1 << 40, 0);
+    const include_subtree = common.parseQueryInt(ctx, "sub", 0, 1, 0) == 1;
     const rtype = ctx.query("type") orelse "";
     const keyword = ctx.queryDecoded("keyword") catch null orelse "";
 
@@ -157,10 +162,18 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
         .page = page,
         .size = size,
         .category_id = category_id,
+        .include_subtree = include_subtree,
         .rtype = rtype,
         .keyword = keyword,
     });
     try respond.ok(res, .{ .items = r.items.items, .total = r.total, .page = page, .size = size });
+}
+
+/// 各分类资料数（供后台分类导航展示），含未分类（category_id=0）
+pub fn adminCategoryStats(ctx: *framework.Context, res: *framework.Response) !void {
+    const st = ctx.service(state.State) orelse return ctx.failWith(framework.AppError.internal("app not ready"));
+    const stats = try resource_repo.countByCategory(st.db, ctx.arena);
+    try respond.ok(res, .{ .items = stats });
 }
 
 pub fn adminGet(ctx: *framework.Context, res: *framework.Response) !void {
@@ -172,7 +185,7 @@ pub fn adminGet(ctx: *framework.Context, res: *framework.Response) !void {
     try respond.ok(res, resourceView(resource));
 }
 
-/// multipart 上传：字段 file（必须）、name（可选，缺省用文件名）、category_id、is_public
+/// multipart 上传：字段 file（必须）、name（可选，缺省用文件名）、category_id（必选）、is_public
 pub fn upload(ctx: *framework.Context, res: *framework.Response) !void {
     const st = ctx.service(state.State) orelse return ctx.failWith(framework.AppError.internal("app not ready"));
     const cu = try authm.currentUser(ctx);
@@ -205,10 +218,12 @@ pub fn upload(ctx: *framework.Context, res: *framework.Response) !void {
     const classified = storage.classify(mime_in, safe_name) catch
         return ctx.failWith(framework.AppError.badRequest("不支持的文件类型"));
 
-    if (category_id != 0) {
-        const cnt = (try st.db.scalarInt("SELECT COUNT(*) FROM categories WHERE id = ?1 AND deleted = 0", .{category_id})) orelse 0;
-        if (cnt == 0) return ctx.failWith(framework.AppError.badRequest("分类不存在"));
+    // 上传资料必须归属到分类管理的某个分类（含子分类）下
+    if (category_id == 0) {
+        return ctx.failWith(framework.AppError.badRequest("请先选择资料分类"));
     }
+    const cnt = (try st.db.scalarInt("SELECT COUNT(*) FROM categories WHERE id = ?1 AND deleted = 0", .{category_id})) orelse 0;
+    if (cnt == 0) return ctx.failWith(framework.AppError.badRequest("分类不存在"));
 
     const saved = storage.saveUpload(ctx.io, ctx.arena, "data/uploads", safe_name, file_field.data) catch |err| switch (err) {
         error.FileTooBig => return ctx.failWith(framework.AppError.payloadTooLarge("文件过大，上限 200MB")),

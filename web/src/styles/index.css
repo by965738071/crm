@@ -154,3 +154,33 @@ body {
   justify-content: center;
   margin-top: 18px;
 }
+
+/* ===== 翻页数据滑动动画 ===== */
+/* 翻页后表格行从下方滑入，所有后台管理页面统一效果 */
+@keyframes tableSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.el-table.slide-enter .el-table__body-wrapper tbody tr {
+  animation: tableSlideIn 0.38s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* 行级延迟，逐行滑入 */
+.el-table.slide-enter .el-table__body-wrapper tbody tr:nth-child(1) { animation-delay: 0ms; }
+.el-table.slide-enter .el-table__body-wrapper tbody tr:nth-child(2) { animation-delay: 25ms; }
+.el-table.slide-enter .el-table__body-wrapper tbody tr:nth-child(3) { animation-delay: 50ms; }
+.el-table.slide-enter .el-table__body-wrapper tbody tr:nth-child(4) { animation-delay: 75ms; }
+.el-table.slide-enter .el-table__body-wrapper tbody tr:nth-child(5) { animation-delay: 100ms; }
+.el-table.slide-enter .el-table__body-wrapper tbody tr:nth-child(6) { animation-delay: 125ms; }
+.el-table.slide-enter .el-table__body-wrapper tbody tr:nth-child(7) { animation-delay: 150ms; }
+.el-table.slide-enter .el-table__body-wrapper tbody tr:nth-child(8) { animation-delay: 175ms; }
+.el-table.slide-enter .el-table__body-wrapper tbody tr:nth-child(9) { animation-delay: 200ms; }
+.el-table.slide-enter .el-table__body-wrapper tbody tr:nth-child(10) { animation-delay: 225ms; }
+.el-table.slide-enter .el-table__body-wrapper tbody tr:nth-child(n+11) { animation-delay: 250ms; }

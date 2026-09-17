@@ -489,6 +489,7 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
     const keyword = ctx.queryDecoded("keyword") catch null orelse "";
     const raw_status = ctx.query("status") orelse "";
     const status = if (exam_repo.validStatus(raw_status)) raw_status else "";
+    const include_subtree = common.parseQueryInt(ctx, "sub", 0, 1, 0) == 1;
 
     const r = try exam_repo.list(st.db, ctx.arena, .{
         .page = page,
@@ -496,10 +497,18 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
         .category_id = category_id,
         .status = status,
         .keyword = keyword,
+        .include_subtree = include_subtree,
     });
     var items: std.ArrayList(ExamView) = .empty;
     for (r.items.items) |row| try items.append(ctx.arena, examView(row.exam));
     try respond.ok(res, .{ .items = items.items, .total = r.total, .page = page, .size = size });
+}
+
+/// 分类维度试卷计数（供管理后台分类树展示）
+pub fn adminCategoryStats(ctx: *framework.Context, res: *framework.Response) !void {
+    const st = ctx.service(state.State) orelse return ctx.failWith(framework.AppError.internal("app not ready"));
+    const stats = try exam_repo.countByCategory(st.db, ctx.arena);
+    try respond.ok(res, .{ .items = stats });
 }
 
 pub fn adminGet(ctx: *framework.Context, res: *framework.Response) !void {

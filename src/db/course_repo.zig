@@ -50,6 +50,8 @@ pub const CourseListOpts = struct {
     only_published: bool = false,
     /// 管理后台按状态过滤（listStatus 用）
     status: []const u8 = "",
+    /// true = category_id 按分类子树过滤（配合递归 CTE）
+    include_subtree: bool = false,
 };
 
 const course_cols = "id, category_id, title, cover, summary, description, price, is_free, status, sort, enroll_count, created_at, updated_at";
@@ -168,17 +170,68 @@ pub const CourseList = struct {
     total: i64,
 };
 
+/// 分类维度课程计数（不含软删）。category_id=0 表示未分类。
+pub const CategoryCount = struct {
+    category_id: i64,
+    count: i64,
+};
+
+pub fn countByCategory(dbh: *db.Db, a: std.mem.Allocator) ![]CategoryCount {
+    var items: std.ArrayList(CategoryCount) = .empty;
+    var rows = try dbh.conn.rows(
+        "SELECT category_id, COUNT(*) FROM courses WHERE deleted = 0 GROUP BY category_id",
+        .{},
+    );
+    defer rows.deinit();
+    while (rows.next()) |row| {
+        try items.append(a, .{ .category_id = row.int(0), .count = row.int(1) });
+    }
+    if (rows.err) |e| return e;
+    return items.items;
+}
+
+// 子树过滤用 SQLite 递归 CTE：各套 SQL 全部在 comptime 拼成常量（参数个数一致 ?1..?6），
+// 运行时只做常量选择。depth < 20 既覆盖正常层级，也防 categories 里出现父子环时无限递归。
+const cte_subtree =
+    "WITH RECURSIVE sub(id, depth) AS (" ++
+    " SELECT ?3, 0" ++
+    " UNION ALL" ++
+    " SELECT c.id, s.depth + 1 FROM categories c JOIN sub s ON c.parent_id = s.id" ++
+    " WHERE c.deleted = 0 AND s.depth < 20) ";
+
+const order_limit = " ORDER BY sort, id DESC LIMIT ?5 OFFSET ?6";
+
+// listStatus：?4 = status 文本参数
+const cond_status_exact =
+    "((?1 = '' OR title LIKE ?2 ESCAPE '\\' OR summary LIKE ?2 ESCAPE '\\') AND (?3 = 0 OR category_id = ?3) AND (?4 = '' OR status = ?4)) AND deleted = 0";
+const cond_status_subtree =
+    "((?1 = '' OR title LIKE ?2 ESCAPE '\\' OR summary LIKE ?2 ESCAPE '\\') AND (?3 = 0 OR category_id IN (SELECT id FROM sub)) AND (?4 = '' OR status = ?4)) AND deleted = 0";
+
+const count_status_exact = "SELECT COUNT(*) FROM courses WHERE " ++ cond_status_exact;
+const count_status_subtree = cte_subtree ++ "SELECT COUNT(*) FROM courses WHERE " ++ cond_status_subtree;
+const rows_status_exact = "SELECT " ++ course_cols ++ " FROM courses WHERE " ++ cond_status_exact ++ order_limit;
+const rows_status_subtree = cte_subtree ++ "SELECT " ++ course_cols ++ " FROM courses WHERE " ++ cond_status_subtree ++ order_limit;
+
+// list：only_published 用 ?4 参数开关（=1 仅已上架，=0 全部）
+const cond_pub_exact =
+    "((?1 = '' OR title LIKE ?2 ESCAPE '\\' OR summary LIKE ?2 ESCAPE '\\') AND (?3 = 0 OR category_id = ?3) AND (?4 = 1 AND status = 'published' OR ?4 = 0)) AND deleted = 0";
+const cond_pub_subtree =
+    "((?1 = '' OR title LIKE ?2 ESCAPE '\\' OR summary LIKE ?2 ESCAPE '\\') AND (?3 = 0 OR category_id IN (SELECT id FROM sub)) AND (?4 = 1 AND status = 'published' OR ?4 = 0)) AND deleted = 0";
+
+const count_pub_exact = "SELECT COUNT(*) FROM courses WHERE " ++ cond_pub_exact;
+const count_pub_subtree = cte_subtree ++ "SELECT COUNT(*) FROM courses WHERE " ++ cond_pub_subtree;
+const rows_pub_exact = "SELECT " ++ course_cols ++ " FROM courses WHERE " ++ cond_pub_exact ++ order_limit;
+const rows_pub_subtree = cte_subtree ++ "SELECT " ++ course_cols ++ " FROM courses WHERE " ++ cond_pub_subtree ++ order_limit;
+
 /// 管理后台专用：按状态过滤的全量列表（status="" 时等同 list only_published=false）
 pub fn listStatus(dbh: *db.Db, a: std.mem.Allocator, opts: CourseListOpts) !CourseList {
-    const cond =
-        "((?1 = '' OR title LIKE ?2 ESCAPE '\\' OR summary LIKE ?2 ESCAPE '\\') AND (?3 = 0 OR category_id = ?3) AND (?4 = '' OR status = ?4)) AND deleted = 0";
     const total = (try dbh.scalarInt(
-        "SELECT COUNT(*) FROM courses WHERE " ++ cond,
+        if (opts.include_subtree) count_status_subtree else count_status_exact,
         .{ opts.keyword, try courseLikePattern(a, opts.keyword), opts.category_id, opts.status },
     )) orelse 0;
     var items: std.ArrayList(Course) = .empty;
     var rows = try dbh.conn.rows(
-        "SELECT " ++ course_cols ++ " FROM courses WHERE " ++ cond ++ " ORDER BY sort, id DESC LIMIT ?5 OFFSET ?6",
+        if (opts.include_subtree) rows_status_subtree else rows_status_exact,
         .{ opts.keyword, try courseLikePattern(a, opts.keyword), opts.category_id, opts.status, opts.size, (opts.page - 1) * opts.size },
     );
     defer rows.deinit();
@@ -206,17 +259,15 @@ fn courseLikePattern(a: std.mem.Allocator, kw: []const u8) ![]u8 {
 pub fn list(dbh: *db.Db, a: std.mem.Allocator, opts: CourseListOpts) !CourseList {
     // only_published=1：仅已上架；=0：全部（含草稿）。用参数避免运行时拼 SQL。
     const only_published: i64 = if (opts.only_published) 1 else 0;
-    const where_part =
-        "((?1 = '' OR title LIKE ?2 ESCAPE '\\' OR summary LIKE ?2 ESCAPE '\\') AND (?3 = 0 OR category_id = ?3) AND (?4 = 1 AND status = 'published' OR ?4 = 0)) AND deleted = 0";
 
     const total = (try dbh.scalarInt(
-        "SELECT COUNT(*) FROM courses WHERE " ++ where_part,
+        if (opts.include_subtree) count_pub_subtree else count_pub_exact,
         .{ opts.keyword, try courseLikePattern(a, opts.keyword), opts.category_id, only_published },
     )) orelse 0;
 
     var items: std.ArrayList(Course) = .empty;
     var rows = try dbh.conn.rows(
-        "SELECT " ++ course_cols ++ " FROM courses WHERE " ++ where_part ++ " ORDER BY sort, id DESC LIMIT ?5 OFFSET ?6",
+        if (opts.include_subtree) rows_pub_subtree else rows_pub_exact,
         .{ opts.keyword, try courseLikePattern(a, opts.keyword), opts.category_id, only_published, opts.size, (opts.page - 1) * opts.size },
     );
     defer rows.deinit();
@@ -380,8 +431,19 @@ fn openTestDb(a: std.mem.Allocator, path: [:0]const u8) !db.Db {
     std.Io.Dir.cwd().deleteFile(std.testing.io, path) catch {};
     var dbh = try db.Db.open(a, path);
     for (test_sqls) |sql| try dbh.exec(sql, .{});
+    try dbh.exec(test_sql_cats, .{});
     return dbh;
 }
+
+const test_sql_cats =
+    \\CREATE TABLE IF NOT EXISTS categories (
+    \\  id INTEGER PRIMARY KEY AUTOINCREMENT,
+    \\  parent_id INTEGER NOT NULL DEFAULT 0,
+    \\  name TEXT NOT NULL,
+    \\  sort INTEGER NOT NULL DEFAULT 0,
+    \\  deleted INTEGER NOT NULL DEFAULT 0
+    \\)
+;
 
 test "course_repo courses/chapters/lessons lifecycle" {
     var arena_instance = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -415,6 +477,29 @@ test "course_repo courses/chapters/lessons lifecycle" {
     // LIKE 通配转义
     const wild = try list(&dbh, a, .{ .keyword = "%" });
     try std.testing.expectEqual(@as(i64, 0), wild.total);
+
+    // 分类树 1 -> 2 -> 3，子树过滤（c1 → cat1 已上架，c2 → cat2 草稿）
+    try dbh.exec("INSERT INTO categories (id, parent_id, name) VALUES (1, 0, '根'), (2, 1, '子'), (3, 2, '孙')", .{});
+    _ = try create(&dbh, 3, "外科护理", "", "", "", 0, 1, "published", 4, 102);
+    // 精确：cat1 只有 c1；子树：cat1 含 cat1+cat2+cat3 全部 3 门
+    try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{ .category_id = 1 })).total);
+    try std.testing.expectEqual(@as(i64, 3), (try list(&dbh, a, .{ .category_id = 1, .include_subtree = true })).total);
+    try std.testing.expectEqual(@as(i64, 2), (try list(&dbh, a, .{ .category_id = 2, .include_subtree = true })).total);
+    try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{ .category_id = 3, .include_subtree = true })).total);
+    // 子树 + 仅已上架：cat1 子树内 published 的是 c1 与新课（c2 草稿）
+    try std.testing.expectEqual(@as(i64, 2), (try list(&dbh, a, .{ .only_published = true, .category_id = 1, .include_subtree = true })).total);
+    // 子树 + 状态过滤（listStatus）
+    try std.testing.expectEqual(@as(i64, 2), (try listStatus(&dbh, a, .{ .category_id = 1, .status = "published", .include_subtree = true })).total);
+    try std.testing.expectEqual(@as(i64, 1), (try listStatus(&dbh, a, .{ .category_id = 1, .status = "draft", .include_subtree = true })).total);
+    // 分类计数（未删）：cat1/cat2/cat3 各 1
+    const stats = try countByCategory(&dbh, a);
+    var found = std.AutoHashMap(i64, i64).init(a);
+    defer found.deinit();
+    for (stats) |s| try found.put(s.category_id, s.count);
+    try std.testing.expectEqual(@as(?i64, 1), found.get(1));
+    try std.testing.expectEqual(@as(?i64, 1), found.get(2));
+    try std.testing.expectEqual(@as(?i64, 1), found.get(3));
+    try std.testing.expectEqual(@as(?i64, null), found.get(99));
 
     // 章节
     const ch1 = try chapterCreate(&dbh, c1, "第一章 导论", 1);

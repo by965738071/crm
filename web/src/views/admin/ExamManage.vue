@@ -1,17 +1,43 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi, categoryApi } from '../../api'
 import { datetime } from '../../utils'
+import PaginationBar from '../../components/PaginationBar.vue'
 
 const loading = ref(false)
+const tableRef = ref(null)
 const items = ref([])
 const total = ref(0)
-const query = reactive({ keyword: '', status: '', category_id: null, page: 1, size: 20 })
+// category_id：null = 全部；include_sub：选中分类时是否连子分类一起看
+const query = reactive({ category_id: null, include_sub: true, keyword: '', status: '', page: 1, size: 20 })
 
 const treeProps = { label: 'name', value: 'id', children: 'children' }
 const treeData = ref([])
 const catMap = ref({})
+
+// ---- 左侧分类导航 ----
+const treeRef = ref(null)
+const counts = ref({}) // category_id -> 试卷数（0 = 未分类）
+
+// “全部试卷”伪根节点（id=0），真实分类挂在它下面
+const navTree = computed(() => [{ id: 0, name: '全部试卷', children: treeData.value }])
+const allTotal = computed(() => Object.values(counts.value).reduce((s, n) => s + n, 0))
+
+function countOf(id) {
+  if (id === 0) return allTotal.value
+  return counts.value[id] || 0
+}
+
+function currentCatName() {
+  return query.category_id ? catMap.value[query.category_id] || '' : ''
+}
+
+function onCatNode(data) {
+  query.category_id = data.id === 0 ? null : data.id
+  query.page = 1
+  load()
+}
 
 function flatten(nodes) {
   for (const n of nodes || []) {
@@ -26,6 +52,17 @@ async function loadCats() {
     treeData.value = r || []
     catMap.value = {}
     flatten(treeData.value)
+    await nextTick()
+    treeRef.value?.setCurrentKey(query.category_id ?? 0)
+  } catch {}
+}
+
+async function loadStats() {
+  try {
+    const r = await adminApi.examStats()
+    const m = {}
+    for (const row of (r && r.items) || []) m[row.category_id] = row.count
+    counts.value = m
   } catch {}
 }
 
@@ -36,6 +73,7 @@ async function load() {
       keyword: query.keyword || undefined,
       status: query.status || undefined,
       category_id: query.category_id || undefined,
+      sub: query.category_id && query.include_sub ? 1 : undefined,
       page: query.page,
       size: query.size,
     })
@@ -44,6 +82,13 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+async function onPage(p) {
+  query.page = p
+  await load()
+  await nextTick()
+  tableRef.value?.setScrollTop(0)
 }
 
 function search() {
@@ -90,7 +135,8 @@ function emptyRule() {
 
 function openCreate() {
   editingId.value = 0
-  Object.assign(form, { category_id: null, title: '', duration_min: 60, total_score: 100, pass_score: 60, status: 'draft' })
+  // 主分类默认带上左侧当前选中的分类（伪根“全部试卷”不预填）
+  Object.assign(form, { category_id: query.category_id || null, title: '', duration_min: 60, total_score: 100, pass_score: 60, status: 'draft' })
   rules.value = [emptyRule()]
   dlgVisible.value = true
 }
@@ -169,7 +215,7 @@ async function submit() {
     else await adminApi.createExam(payload)
     ElMessage.success('已保存')
     dlgVisible.value = false
-    await load()
+    await Promise.all([load(), loadStats()])
   } catch {} finally {
     saving.value = false
   }
@@ -185,73 +231,96 @@ async function remove(row) {
   try {
     await adminApi.deleteExam(row.id)
     ElMessage.success('已删除')
-    await load()
+    await Promise.all([load(), loadStats()])
   } catch {}
 }
 
 onMounted(async () => {
-  await loadCats()
+  await Promise.all([loadCats(), loadStats()])
   await load()
 })
 </script>
 <template>
-  <div>
-    <div class="toolbar">
-      <el-tree-select v-model="query.category_id" :data="treeData" :props="treeProps" check-strictly
-        clearable placeholder="全部主分类" class="w180" @change="search" />
-      <el-select v-model="query.status" class="w130" placeholder="状态" @change="search">
-        <el-option label="全部状态" value="" />
-        <el-option label="草稿" value="draft" />
-        <el-option label="已发布" value="published" />
-      </el-select>
-      <el-input v-model="query.keyword" class="w200" placeholder="试卷标题" clearable
-        @keyup.enter="search" @clear="search">
-        <template #prefix><el-icon><Search /></el-icon></template>
-      </el-input>
-      <el-button type="primary" @click="search">查询</el-button>
-      <el-button class="create-btn" type="primary" @click="openCreate">新建试卷</el-button>
+  <div class="exam-layout">
+    <el-card class="cat-panel" shadow="never">
+      <template #header><span class="cat-title">试卷分类</span></template>
+      <el-tree
+        ref="treeRef"
+        :data="navTree"
+        :props="treeProps"
+        node-key="id"
+        highlight-current
+        default-expand-all
+        :expand-on-click-node="false"
+        @node-click="onCatNode"
+      >
+        <template #default="{ data }">
+          <span class="tree-node">
+            <span class="tree-label">{{ data.name }}</span>
+            <span class="tree-cnt">{{ countOf(data.id) }}</span>
+          </span>
+        </template>
+      </el-tree>
+    </el-card>
+
+    <div class="main-panel">
+      <div class="toolbar">
+        <el-select v-model="query.status" class="w130" placeholder="状态" @change="search">
+          <el-option label="全部状态" value="" />
+          <el-option label="草稿" value="draft" />
+          <el-option label="已发布" value="published" />
+        </el-select>
+        <el-input v-model="query.keyword" class="w200" placeholder="试卷标题" clearable
+          @keyup.enter="search" @clear="search">
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
+        <el-tooltip content="仅选中分类时生效" :disabled="!query.category_id">
+          <span class="sub-switch">
+            <el-switch v-model="query.include_sub" :disabled="!query.category_id" size="small" @change="search" />
+            <span class="hint">含子分类</span>
+          </span>
+        </el-tooltip>
+        <el-button type="primary" @click="search">查询</el-button>
+        <el-button class="create-btn" type="primary" @click="openCreate">新建试卷</el-button>
+      </div>
+
+      <div class="table-box">
+        <el-table ref="tableRef" v-loading="loading" :data="items" stripe height="100%">
+          <el-table-column prop="id" label="ID" width="70" />
+          <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
+          <el-table-column label="主分类" width="130" show-overflow-tooltip>
+            <template #default="{ row }">{{ catMap[row.category_id] || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="时长" width="90">
+            <template #default="{ row }">{{ row.duration_min }} 分钟</template>
+          </el-table-column>
+          <el-table-column prop="total_score" label="总分" width="70" />
+          <el-table-column prop="pass_score" label="及格分" width="80" />
+          <el-table-column prop="question_count" label="题数" width="70" />
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag size="small" :type="statusMap[row.status]?.type || 'info'">
+                {{ statusMap[row.status]?.label || row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="创建时间" width="150">
+            <template #default="{ row }">{{ datetime(row.created_at) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="150" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" @click="openEdit(row)">编辑</el-button>
+              <el-button size="small" type="danger" plain @click="remove(row)">删除</el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <el-empty :description="query.category_id ? `「${currentCatName()}」下暂无试卷` : '暂无试卷'" />
+          </template>
+        </el-table>
+      </div>
+
+      <PaginationBar v-model:page="query.page" :total="total" :size="query.size" @change="onPage" />
     </div>
-
-    <el-table v-loading="loading" :data="items" stripe>
-      <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
-      <el-table-column label="主分类" width="130" show-overflow-tooltip>
-        <template #default="{ row }">{{ catMap[row.category_id] || '-' }}</template>
-      </el-table-column>
-      <el-table-column label="时长" width="90">
-        <template #default="{ row }">{{ row.duration_min }} 分钟</template>
-      </el-table-column>
-      <el-table-column prop="total_score" label="总分" width="70" />
-      <el-table-column prop="pass_score" label="及格分" width="80" />
-      <el-table-column prop="question_count" label="题数" width="70" />
-      <el-table-column label="状态" width="90">
-        <template #default="{ row }">
-          <el-tag size="small" :type="statusMap[row.status]?.type || 'info'">
-            {{ statusMap[row.status]?.label || row.status }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间" width="150">
-        <template #default="{ row }">{{ datetime(row.created_at) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="150" fixed="right">
-        <template #default="{ row }">
-          <el-button size="small" @click="openEdit(row)">编辑</el-button>
-          <el-button size="small" type="danger" plain @click="remove(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    <el-empty v-if="!loading && !items.length" description="暂无试卷" />
-
-    <el-pagination
-      v-if="total > query.size"
-      class="pager"
-      layout="prev, pager, next, total"
-      :total="total"
-      :page-size="query.size"
-      :current-page="query.page"
-      @current-change="(p) => { query.page = p; load() }"
-    />
 
     <el-dialog v-model="dlgVisible" :title="editingId ? '编辑试卷' : '新建试卷'" width="760">
       <el-form label-width="90px">
@@ -311,7 +380,14 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.toolbar { display: flex; gap: 10px; margin-bottom: 14px; }
+.exam-layout { display: flex; gap: 14px; align-items: stretch; flex: 1; min-height: 0; overflow: hidden; }
+.cat-panel { width: 250px; flex: none; display: flex; flex-direction: column; }
+.cat-panel :deep(.el-card__body) { padding: 8px 6px; flex: 1; min-height: 0; overflow: auto; }
+.cat-title { font-weight: 600; }
+.tree-node { display: flex; align-items: center; justify-content: space-between; width: 100%; padding-right: 8px; }
+.tree-cnt { margin-left: 8px; font-size: 12px; color: var(--el-text-color-secondary); }
+.main-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; flex: none; }
 .w110 { width: 110px; }
 .w120 { width: 120px; }
 .w130 { width: 130px; }
@@ -319,9 +395,11 @@ onMounted(async () => {
 .w200 { width: 200px; }
 .w240 { width: 240px; }
 .create-btn { margin-left: auto; }
+.sub-switch { display: inline-flex; align-items: center; gap: 4px; }
+.hint { font-size: 12px; color: var(--el-text-color-secondary); }
 .rules { width: 100%; }
 .rule-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .rule-sum { font-size: 12px; color: var(--el-text-color-secondary); white-space: nowrap; }
 .mb8 { margin-bottom: 8px; }
-.pager { margin-top: 12px; justify-content: center; }
+.table-box { flex: 1; min-height: 0; }
 </style>

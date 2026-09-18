@@ -1,12 +1,17 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
+import { useProjectStore } from '../stores/project'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const project = useProjectStore()
+
+// 专业频道：顶栏切换，选中项持久化；各页面 watch currentId 自行刷新
+onMounted(() => project.load())
 
 const activeMenu = computed(() => {
   const p = route.path
@@ -40,8 +45,8 @@ function onCommand(cmd) {
     <el-header class="hd" height="64px">
       <div class="hd-inner">
         <div class="brand" @click="router.push('/home')">
-          <span class="logo">🩺</span>
-          <span class="brand-text">医学考试学习平台</span>
+          <span class="logo">📚</span>
+          <span class="brand-text">考试学习平台</span>
         </div>
         <el-menu :default-active="activeMenu" mode="horizontal" router class="nav" :ellipsis="false">
           <el-menu-item index="/home">首页</el-menu-item>
@@ -55,6 +60,15 @@ function onCommand(cmd) {
           </template>
           <el-menu-item v-else index="/announcements">公告</el-menu-item>
         </el-menu>
+        <el-select
+          v-if="project.list.length"
+          class="proj-sel"
+          :model-value="project.currentId"
+          @change="(v) => project.set(v)"
+        >
+          <el-option label="全部专业" :value="0" />
+          <el-option v-for="p in project.list" :key="p.id" :label="p.name" :value="p.id" />
+        </el-select>
         <div class="usr">
           <template v-if="auth.isLoggedIn">
             <el-dropdown @command="onCommand">
@@ -103,9 +117,9 @@ function onCommand(cmd) {
     </el-main>
     <el-footer class="ft">
       <div class="ft-inner">
-        <div class="ft-brand">🩺 医学考试学习平台</div>
-        <div class="ft-text">专业医学考试在线学习 · 课程 / 题库 / 模拟考试</div>
-        <div class="ft-copy">© {{ new Date().getFullYear() }} Medical Exam Platform</div>
+        <div class="ft-brand">📚 考试学习平台</div>
+        <div class="ft-text">各类职业资格考试在线学习 · 课程 / 题库 / 模拟考试</div>
+        <div class="ft-copy">© {{ new Date().getFullYear() }} Exam Learning Platform</div>
       </div>
     </el-footer>
   </el-container>
@@ -149,6 +163,7 @@ function onCommand(cmd) {
   flex: 1; border-bottom: none !important;
   --el-menu-horizontal-height: 40px;
 }
+.proj-sel { width: 150px; flex: none; }
 .nav :deep(.el-menu-item) {
   height: 40px !important;
   line-height: 40px !important;

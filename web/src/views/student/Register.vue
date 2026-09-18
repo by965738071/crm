@@ -54,9 +54,9 @@ async function submit() {
     <div class="panel">
       <div class="brand-side">
         <div class="brand-inner">
-          <div class="logo">🩺</div>
+          <div class="logo">📚</div>
           <h1>加入我们</h1>
-          <p>开启高效医学备考之旅</p>
+          <p>开启高效备考之旅</p>
           <ul class="feats">
             <li><el-icon><CircleCheck /></el-icon>免费注册，即刻体验</li>
             <li><el-icon><CircleCheck /></el-icon>课程 / 题库 / 模拟考试随身学</li>

@@ -1,9 +1,11 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { categoryApi, practiceApi } from '../../api'
+import { useProjectStore } from '../../stores/project'
 import QuestionCard from '../../components/QuestionCard.vue'
 
+const project = useProjectStore()
 const cats = ref([])
 const catProps = { label: 'name', value: 'id', children: 'children' }
 
@@ -22,7 +24,7 @@ async function start() {
   try {
     const d = await practiceApi.start({
       mode: cfg.mode,
-      category_id: cfg.category_id || 0,
+      ...project.scope(cfg.category_id),
       count: cfg.count,
     })
     if (!d.items.length) return ElMessage.warning('该范围没有足够题目，换个分类或减少题数')
@@ -67,9 +69,20 @@ async function toggleFav(row) {
   favIds.value = s
 }
 
-onMounted(async () => {
-  cats.value = await categoryApi.tree().catch(() => [])
-})
+async function loadCats() {
+  const params = project.currentId ? { project_id: project.currentId } : undefined
+  cats.value = await categoryApi.tree(params).catch(() => [])
+}
+
+onMounted(loadCats)
+
+watch(
+  () => project.currentId,
+  () => {
+    cfg.category_id = undefined
+    loadCats()
+  },
+)
 </script>
 
 <template>

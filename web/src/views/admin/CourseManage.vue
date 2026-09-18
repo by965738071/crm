@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi, categoryApi } from '../../api'
@@ -19,12 +19,24 @@ const treeProps = { label: 'name', value: 'id', children: 'children' }
 const treeData = ref([])
 const catMap = ref({})
 
+// ---- 专业筛选 ----
+const projects = ref([])
+const filterProjectId = ref(0)
+const curProject = computed(() => projects.value.find((p) => p.id === filterProjectId.value) || null)
+// 选中专业时只取该专业根分类下的子树作为分类选项
+const catOptions = computed(() => {
+  const p = curProject.value
+  if (!p) return treeData.value
+  const root = treeData.value.find((n) => n.id === p.root_category_id)
+  return root ? root.children || [] : []
+})
+
 // ---- 左侧分类导航 ----
 const treeRef = ref(null)
 const counts = ref({}) // category_id -> 课程数（0 = 未分类）
 
 // “全部课程”伪根节点（id=0），真实分类挂在它下面
-const navTree = computed(() => [{ id: 0, name: '全部课程', children: treeData.value }])
+const navTree = computed(() => [{ id: 0, name: '全部课程', children: catOptions.value }])
 // 默认只展开伪根节点 → 展示一级分类；二级及以下保持折叠
 const expandedKeys = [0]
 const allTotal = computed(() => Object.values(counts.value).reduce((s, n) => s + n, 0))
@@ -74,10 +86,11 @@ async function loadStats() {
 async function load() {
   loading.value = true
   try {
+    const cat = query.category_id || curProject.value?.root_category_id
     const r = await adminApi.courses({
       keyword: query.keyword || undefined,
-      category_id: query.category_id || undefined,
-      sub: query.category_id && query.include_sub ? 1 : undefined,
+      category_id: cat || undefined,
+      sub: cat && (!query.category_id || query.include_sub) ? 1 : undefined,
       status: query.status || undefined,
       page: query.page,
       size: query.size,
@@ -100,6 +113,14 @@ function search() {
   query.page = 1
   load()
 }
+
+watch(filterProjectId, async () => {
+  query.category_id = null
+  query.page = 1
+  await nextTick()
+  treeRef.value?.setCurrentKey(0)
+  await load()
+})
 
 const statusMap = {
   draft: { label: '草稿', type: 'info' },
@@ -203,7 +224,7 @@ function goLessons(row) {
 }
 
 onMounted(async () => {
-  await Promise.all([loadCats(), loadStats()])
+  await Promise.all([loadCats(), loadStats(), adminApi.projects().then((r) => (projects.value = r || []))])
   await load()
 })
 </script>
@@ -232,6 +253,10 @@ onMounted(async () => {
 
     <div class="main-panel">
       <div class="toolbar">
+        <el-select v-model="filterProjectId" class="proj-filter" placeholder="全部专业">
+          <el-option label="全部专业" :value="0" />
+          <el-option v-for="p in projects" :key="p.id" :label="p.name" :value="p.id" />
+        </el-select>
         <el-select v-model="query.status" class="w130" placeholder="状态" @change="search">
           <el-option label="全部状态" value="" />
           <el-option label="草稿" value="draft" />
@@ -292,7 +317,7 @@ onMounted(async () => {
     <el-dialog v-model="dlgVisible" :title="editingId ? '编辑课程' : '新建课程'" width="640">
       <el-form label-width="90px">
         <el-form-item label="分类" required>
-          <el-tree-select v-model="form.category_id" :data="treeData" :props="treeProps" check-strictly
+          <el-tree-select v-model="form.category_id" :data="catOptions" :props="treeProps" check-strictly
             placeholder="选择分类" class="w100" />
         </el-form-item>
         <el-form-item label="标题" required>
@@ -342,6 +367,7 @@ onMounted(async () => {
 .tree-cnt { margin-left: 8px; font-size: 12px; color: var(--el-text-color-secondary); }
 .main-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .toolbar { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; flex: none; }
+.proj-filter { width: 150px; }
 .w130 { width: 130px; }
 .w200 { width: 200px; }
 .w100 { width: 100%; }

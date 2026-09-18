@@ -7,6 +7,7 @@ const health = @import("../web/handlers/health.zig");
 const auth_h = @import("../web/handlers/auth.zig");
 const admin_users = @import("../web/handlers/admin_users.zig");
 const categories = @import("../web/handlers/categories.zig");
+const projects_h = @import("../web/handlers/projects.zig");
 const courses = @import("../web/handlers/courses.zig");
 const resources = @import("../web/handlers/resources.zig");
 const learning = @import("../web/handlers/learning.zig");
@@ -22,16 +23,25 @@ const stats_h = @import("../web/handlers/stats.zig");
 const admin_logs = @import("../web/handlers/admin_logs.zig");
 const auth_mw = @import("auth_middleware.zig");
 const respond = @import("../web/respond.zig");
+const dist_embed = @import("../web/dist_embed.zig");
 
 pub fn register(st: *state.State, router: *framework.Router) !void {
     try router.route(.GET, "/api/health", framework.Handler.fromFn(health.handle));
 
-    // 前端静态资源（web/dist 构建产物）
-    try router.route(.GET, "/static/*", framework.Handler.initSingleton(&st.static_assets));
-    // 题目图片静态资源（data/uploads/images，仅暴露随机文件名）
+    // 前端静态资源：编译期内嵌（web/dist → @embedFile）优先，单文件部署；
+    // 未内嵌（-Dembed-dist=false / 缺 dist）时回退为运行期托管 web/dist 目录。
+    if (dist_embed.enabled) {
+        try router.route(.GET, "/", framework.Handler.fromFn(dist_embed.handleRoot));
+        try router.route(.GET, "/static/*", framework.Handler.fromFn(dist_embed.handleStatic));
+        // vite base='/' 产物引用 /assets/*（修复：此前漏注册，资源会被 SPA 回退吞成 HTML）
+        try router.route(.GET, "/assets/*", framework.Handler.fromFn(dist_embed.handleAssets));
+    } else {
+        try router.route(.GET, "/static/*", framework.Handler.initSingleton(&st.static_assets));
+        try router.route(.GET, "/assets/*", framework.Handler.initSingleton(&st.static_assets));
+        try router.route(.GET, "/", framework.Handler.initSingleton(&st.static_index));
+    }
+    // 题目图片静态资源（data/uploads/images，运行期上传产物，始终走文件系统）
     try router.route(.GET, "/uploads/images/*", framework.Handler.initSingleton(&st.image_files));
-    // 根路径先返回前端占位页；SPA 回退路由在第 8 期前端接入时完善
-    try router.route(.GET, "/", framework.Handler.initSingleton(&st.static_index));
 
     // ---------------- 认证与用户（第 1 期） ----------------
     var api = try router.group("/api");
@@ -94,6 +104,13 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
     try admin.route(.PUT, "/users/:id/status", framework.Handler.fromFn(admin_users.putStatus));
     try admin.route(.PUT, "/users/:id/role", framework.Handler.fromFn(admin_users.putRole));
     try admin.route(.POST, "/users/:id/reset-password", framework.Handler.fromFn(admin_users.postResetPassword));
+
+    // ---------------- 专业（考试项目） ----------------
+    try api.route(.GET, "/projects", framework.Handler.fromFn(projects_h.list));
+    try admin.route(.GET, "/projects", framework.Handler.fromFn(projects_h.adminList));
+    try admin.route(.POST, "/projects", framework.Handler.fromFn(projects_h.adminCreate));
+    try admin.route(.PUT, "/projects/:id", framework.Handler.fromFn(projects_h.adminUpdate));
+    try admin.route(.DELETE, "/projects/:id", framework.Handler.fromFn(projects_h.adminDelete));
 
     // ---------------- 分类（第 2 期） ----------------
     try api.route(.GET, "/categories", framework.Handler.fromFn(categories.tree));
@@ -171,5 +188,10 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
     // 日志管理（审计日志查询）
     try admin.route(.GET, "/audit-logs", framework.Handler.fromFn(admin_logs.adminList));
 
-    router.notFoundHandler(framework.Handler.initSingleton(&st.spa));
+    // SPA 深链回退：内嵌模式下用内存中的 index.html，否则用启动时读盘的副本
+    if (dist_embed.enabled) {
+        router.notFoundHandler(framework.Handler.fromFn(dist_embed.handleNotFound));
+    } else {
+        router.notFoundHandler(framework.Handler.initSingleton(&st.spa));
+    }
 }

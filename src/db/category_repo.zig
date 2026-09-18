@@ -105,23 +105,23 @@ test "category_repo create/get/update/findAll/delete" {
     var dbh = try openTestDb(a, ".test_data/category_repo_test.db");
     defer dbh.close();
 
-    const id1 = try create(&dbh, a, 0, "临床执业医师", 1);
+    const id1 = try create(&dbh, a, 0, "考试项目A", 1);
     try std.testing.expect(id1 > 0);
-    const id2 = try create(&dbh, a, id1, "内科学", 2);
+    const id2 = try create(&dbh, a, id1, "科目一", 2);
 
     const got = (try getById(&dbh, a, id2)).?;
-    try std.testing.expectEqualStrings("内科学", got.name);
+    try std.testing.expectEqualStrings("科目一", got.name);
     try std.testing.expectEqual(id1, got.parent_id);
     try std.testing.expectEqual(@as(i64, 2), got.sort);
 
-    try update(&dbh, a, id2, id1, "外科学", 5);
+    try update(&dbh, a, id2, id1, "科目二", 5);
     const updated = (try getById(&dbh, a, id2)).?;
-    try std.testing.expectEqualStrings("外科学", updated.name);
+    try std.testing.expectEqualStrings("科目二", updated.name);
     try std.testing.expectEqual(@as(i64, 5), updated.sort);
 
     const all = try findAll(&dbh, a);
     try std.testing.expectEqual(@as(usize, 2), all.len);
-    try std.testing.expectEqualStrings("临床执业医师", all[0].name);
+    try std.testing.expectEqualStrings("考试项目A", all[0].name);
 
     try delete(&dbh, id2);
     const after_del = try findAll(&dbh, a);

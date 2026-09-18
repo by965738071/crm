@@ -1,15 +1,29 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi, categoryApi } from '../../api'
 
 const loading = ref(false)
-const treeData = ref([])
+const treeDataAll = ref([])
+const projects = ref([])
+const filterProjectId = ref(0)
+
+// 选中专业 = 只看该专业根分类下的子树；专业根节点由专业管理维护，此处禁改
+const treeData = computed(() => {
+  const p = projects.value.find((x) => x.id === filterProjectId.value)
+  if (!p) return treeDataAll.value
+  return treeDataAll.value.filter((n) => n.id === p.root_category_id)
+})
+const projectRootIds = computed(() => new Set(projects.value.map((p) => p.root_category_id)))
+const isProjectRoot = (row) => projectRootIds.value.has(row.id)
+const curProject = computed(() => projects.value.find((x) => x.id === filterProjectId.value) || null)
 
 async function load() {
   loading.value = true
   try {
-    treeData.value = (await categoryApi.tree()) || []
+    const [t, ps] = await Promise.all([categoryApi.tree(), adminApi.projects()])
+    treeDataAll.value = t || []
+    projects.value = ps || []
   } finally {
     loading.value = false
   }
@@ -25,7 +39,8 @@ const form = reactive({ parent_id: null, name: '', sort: 0 })
 
 function openCreate(parent) {
   editingId.value = 0
-  form.parent_id = parent ? parent.id : null
+  // 选中专业且未指定父级时，默认挂到该专业根分类下
+  form.parent_id = parent ? parent.id : curProject.value ? curProject.value.root_category_id : null
   form.name = ''
   form.sort = 0
   dlgVisible.value = true
@@ -78,7 +93,14 @@ onMounted(load)
 <template>
   <div class="page-list">
     <div class="toolbar">
-      <el-button type="primary" @click="openCreate(null)">新增根分类</el-button>
+      <el-select v-model="filterProjectId" class="proj-filter" placeholder="全部专业">
+        <el-option label="全部专业" :value="0" />
+        <el-option v-for="p in projects" :key="p.id" :label="p.name" :value="p.id" />
+      </el-select>
+      <el-button type="primary" @click="openCreate(null)">
+        {{ curProject ? `在「${curProject.name}」下新增科目` : '新增根分类' }}
+      </el-button>
+      <span class="hint">专业的创建/改名请去「专业管理」，根分类会随专业自动维护</span>
     </div>
 
     <div class="table-wrap">
@@ -90,8 +112,8 @@ onMounted(load)
       <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
           <el-button size="small" plain @click="openCreate(row)">加子级</el-button>
-          <el-button size="small" @click="openEdit(row)">编辑</el-button>
-          <el-button size="small" type="danger" plain @click="remove(row)">删除</el-button>
+          <el-button size="small" @click="openEdit(row)" :disabled="isProjectRoot(row)">编辑</el-button>
+          <el-button size="small" type="danger" plain @click="remove(row)" :disabled="isProjectRoot(row)">删除</el-button>
         </template>
       </el-table-column>
       <template #empty>
@@ -124,7 +146,8 @@ onMounted(load)
 
 <style scoped>
 .page-list { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-.toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex: none; }
+.toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex: none; align-items: center; }
+.proj-filter { width: 180px; }
 .table-wrap { flex: 1; min-height: 0; }
 .w100 { width: 100%; }
 .hint { margin-left: 10px; font-size: 12px; color: var(--el-text-color-secondary); }

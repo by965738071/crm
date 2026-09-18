@@ -1,12 +1,14 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { examApi } from '../../api'
+import { useProjectStore } from '../../stores/project'
 import { datetime } from '../../utils'
 import PaginationBar from '../../components/PaginationBar.vue'
 
 const router = useRouter()
+const project = useProjectStore()
 const loading = ref(false)
 const items = ref([])
 const total = ref(0)
@@ -21,7 +23,7 @@ const hisQuery = reactive({ page: 1, size: 10 })
 async function load() {
   loading.value = true
   try {
-    const r = await examApi.list({ page: query.page, size: query.size })
+    const r = await examApi.list({ ...project.scope(), page: query.page, size: query.size })
     items.value = r.items
     total.value = r.total
   } finally {
@@ -57,6 +59,14 @@ onMounted(() => {
   load()
   loadHistory()
 })
+
+watch(
+  () => project.currentId,
+  () => {
+    query.page = 1
+    load()
+  },
+)
 </script>
 
 <template>

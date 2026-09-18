@@ -1,11 +1,13 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { categoryApi, courseApi } from '../../api'
+import { useProjectStore } from '../../stores/project'
 import { money } from '../../utils'
 import PaginationBar from '../../components/PaginationBar.vue'
 
 const router = useRouter()
+const project = useProjectStore()
 const loading = ref(false)
 const items = ref([])
 const total = ref(0)
@@ -14,11 +16,16 @@ const query = reactive({ category_id: undefined, keyword: '', page: 1, size: 12 
 
 const catProps = { label: 'name', value: 'id', children: 'children' }
 
+async function loadCats() {
+  const params = project.currentId ? { project_id: project.currentId } : undefined
+  cats.value = await categoryApi.tree(params).catch(() => [])
+}
+
 async function load() {
   loading.value = true
   try {
     const r = await courseApi.list({
-      category_id: query.category_id || 0,
+      ...project.scope(query.category_id),
       keyword: query.keyword || undefined,
       page: query.page,
       size: query.size,
@@ -36,16 +43,25 @@ function search() {
 }
 
 onMounted(async () => {
-  cats.value = await categoryApi.tree().catch(() => [])
+  await loadCats()
   load()
 })
+
+watch(
+  () => project.currentId,
+  async () => {
+    query.category_id = undefined
+    await loadCats()
+    search()
+  },
+)
 </script>
 
 <template>
   <div>
     <div class="page-title">
       <h3>课程中心</h3>
-      <span class="sub">精选医学考试课程，助你系统备考</span>
+      <span class="sub">精选考试课程，助你系统备考</span>
     </div>
     <div class="toolbar">
       <div class="toolbar-box">

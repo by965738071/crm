@@ -229,11 +229,11 @@ test "user_repo create/get/update/list" {
     try std.testing.expectError(error.UserNotFound, updateStatus(&dbh, 9999, "active", 1));
 
     // 列表 + 关键字 + 角色过滤 + LIKE 转义
-    _ = try create(&dbh, "c@d.com", "carol", "Bob 医生", "h3", "admin", 100);
+    _ = try create(&dbh, "c@d.com", "carol", "Bob 管理员", "h3", "admin", 100);
     const all = try list(&dbh, a, .{});
     try std.testing.expectEqual(@as(i64, 2), all.total);
 
-    const kw = try list(&dbh, a, .{ .keyword = "医生" });
+    const kw = try list(&dbh, a, .{ .keyword = "管理" });
     try std.testing.expectEqual(@as(i64, 1), kw.total);
     try std.testing.expectEqualStrings("carol", kw.items.items[0].username);
 

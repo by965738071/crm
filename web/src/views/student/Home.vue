@@ -1,21 +1,24 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
+import { useProjectStore } from '../../stores/project'
 import { announcementApi, courseApi } from '../../api'
 import { money, date } from '../../utils'
 
 const router = useRouter()
 const auth = useAuthStore()
+const project = useProjectStore()
 const anns = ref([])
 const courses = ref([])
 const loading = ref(true)
 
-onMounted(async () => {
+async function load() {
+  loading.value = true
   try {
     const [a, c] = await Promise.all([
       announcementApi.list({ page: 1, size: 5 }),
-      courseApi.list({ page: 1, size: 10 }),
+      courseApi.list({ page: 1, size: 10, ...project.scope() }),
     ])
     anns.value = a.items
     courses.value = c.items
@@ -24,7 +27,10 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(load)
+watch(() => project.currentId, load)
 
 const tipCourse = computed(() => courses.value[0])
 
@@ -62,7 +68,7 @@ const delay = (i) => ({ animationDelay: `${i * 70}ms` })
         <div class="hero-copy">
           <span class="badge">
             <span class="dot" />
-            医学考试一站式学习平台
+            一站式职业考试学习平台
           </span>
           <h1 class="hero-title">
             让每一次备考<br />
@@ -106,7 +112,7 @@ const delay = (i) => ({ animationDelay: `${i * 70}ms` })
               <div class="gc-title">{{ tipCourse.title }}</div>
               <div class="gc-meta">
                 <el-icon><User /></el-icon> {{ tipCourse.enroll_count }} 人在学
-                <el-icon style="margin-left: 10px"><Folder /></el-icon> 医学考试
+                <el-icon style="margin-left: 10px"><Folder /></el-icon> {{ project.current?.name || '通用学习' }}
               </div>
               <el-button type="primary" class="gc-btn" @click="router.push(`/courses/${tipCourse.id}`)">
                 了解课程 <el-icon class="el-icon--right"><ArrowRight /></el-icon>
@@ -210,7 +216,7 @@ const delay = (i) => ({ animationDelay: `${i * 70}ms` })
           <div class="sec-head">
             <div>
               <h3>为什么选择我们</h3>
-              <p class="sec-sub">为医学考试而生的完整闭环</p>
+              <p class="sec-sub">为各类职业资格考试而生的完整闭环</p>
             </div>
           </div>
           <div class="benefits">

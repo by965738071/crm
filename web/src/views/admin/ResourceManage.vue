@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi, categoryApi } from '../../api'
 import { fileSize, datetime } from '../../utils'
@@ -16,12 +16,24 @@ const treeProps = { label: 'name', value: 'id', children: 'children' }
 const treeData = ref([])
 const catMap = ref({})
 
+// ---- 专业筛选 ----
+const projects = ref([])
+const filterProjectId = ref(0)
+const curProject = computed(() => projects.value.find((p) => p.id === filterProjectId.value) || null)
+// 选中专业时只取该专业根分类下的子树作为分类选项
+const catOptions = computed(() => {
+  const p = curProject.value
+  if (!p) return treeData.value
+  const root = treeData.value.find((n) => n.id === p.root_category_id)
+  return root ? root.children || [] : []
+})
+
 // ---- 左侧分类导航 ----
 const treeRef = ref(null)
 const counts = ref({}) // category_id -> 资料数（0 = 未分类）
 
 // “全部资料”伪根节点（id=0），真实分类挂在它下面
-const navTree = computed(() => [{ id: 0, name: '全部资料', children: treeData.value }])
+const navTree = computed(() => [{ id: 0, name: '全部资料', children: catOptions.value }])
 // 默认只展开伪根节点 → 展示一级分类；二级及以下保持折叠
 const expandedKeys = [0]
 const allTotal = computed(() => Object.values(counts.value).reduce((s, n) => s + n, 0))
@@ -71,9 +83,10 @@ async function loadStats() {
 async function load() {
   loading.value = true
   try {
+    const cat = query.category_id || curProject.value?.root_category_id
     const r = await adminApi.resources({
-      category_id: query.category_id || undefined,
-      sub: query.category_id && query.include_sub ? 1 : undefined,
+      category_id: cat || undefined,
+      sub: cat && (!query.category_id || query.include_sub) ? 1 : undefined,
       type: query.type || undefined,
       keyword: query.keyword || undefined,
       page: query.page,
@@ -97,6 +110,14 @@ function search() {
   query.page = 1
   load()
 }
+
+watch(filterProjectId, async () => {
+  query.category_id = null
+  query.page = 1
+  await nextTick()
+  treeRef.value?.setCurrentKey(0)
+  await load()
+})
 
 const typeMap = {
   video: { label: '视频', type: 'primary' },
@@ -221,7 +242,7 @@ async function remove(row) {
 }
 
 onMounted(async () => {
-  await Promise.all([loadCats(), loadStats()])
+  await Promise.all([loadCats(), loadStats(), adminApi.projects().then((r) => (projects.value = r || []))])
   await load()
 })
 </script>
@@ -250,6 +271,10 @@ onMounted(async () => {
 
     <div class="main-panel">
       <div class="toolbar">
+        <el-select v-model="filterProjectId" class="proj-filter" placeholder="全部专业">
+          <el-option label="全部专业" :value="0" />
+          <el-option v-for="p in projects" :key="p.id" :label="p.name" :value="p.id" />
+        </el-select>
         <el-select v-model="query.type" class="w130" placeholder="类型" @change="search">
           <el-option label="全部类型" value="" />
           <el-option v-for="t in typeOptions" :key="t.value" :label="t.label" :value="t.value" />
@@ -327,7 +352,7 @@ onMounted(async () => {
           <el-input v-model="upForm.name" :maxlength="200" placeholder="展示名称，默认用文件名" />
         </el-form-item>
         <el-form-item label="分类" required>
-          <el-tree-select v-model="upForm.category_id" :data="treeData" :props="treeProps" check-strictly
+          <el-tree-select v-model="upForm.category_id" :data="catOptions" :props="treeProps" check-strictly
             clearable placeholder="必选，可选父级或子分类" class="w100" />
         </el-form-item>
         <el-form-item label="公开">
@@ -348,7 +373,7 @@ onMounted(async () => {
           <el-input v-model="form.name" :maxlength="200" />
         </el-form-item>
         <el-form-item label="分类">
-          <el-tree-select v-model="form.category_id" :data="treeData" :props="treeProps" check-strictly
+          <el-tree-select v-model="form.category_id" :data="catOptions" :props="treeProps" check-strictly
             clearable placeholder="可留空（未分类）" class="w100" />
         </el-form-item>
         <el-form-item label="类型">
@@ -377,6 +402,7 @@ onMounted(async () => {
 .tree-cnt { margin-left: 8px; font-size: 12px; color: var(--el-text-color-secondary); }
 .main-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .toolbar { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; flex: none; }
+.proj-filter { width: 150px; }
 .w130 { width: 130px; }
 .w200 { width: 200px; }
 .w100 { width: 100%; }

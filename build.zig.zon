@@ -33,7 +33,7 @@
     // internet connectivity.
     .dependencies = .{
         .http_framework = .{
-            .path = "../wlw/http-framework"
+            .path = "../http-framework"
             //.url = "git+https://github.com/by965738071/http-framework#main",
             
         },

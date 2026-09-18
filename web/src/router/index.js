@@ -39,6 +39,7 @@ const routes = [
       { path: '', redirect: '/admin/dashboard' },
       { path: 'dashboard', name: 'admin-dashboard', component: A('Dashboard') },
       { path: 'users', name: 'admin-users', component: A('UserList') },
+      { path: 'projects', name: 'admin-projects', component: A('ProjectManage') },
       { path: 'categories', name: 'admin-categories', component: A('CategoryManage') },
       { path: 'courses', name: 'admin-courses', component: A('CourseManage') },
       { path: 'courses/:id/lessons', name: 'admin-lessons', component: A('LessonEdit'), props: true },

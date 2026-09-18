@@ -55,12 +55,12 @@ const question_cols = colref.cols(Question);
 // ---------------------------------------------------------------- 校验 / 规范化
 
 pub const ValidationError = error{
-    BadType,           // type 不在 single/multi/judge
-    BadStem,           // 题干为空或超长
-    BadOptions,        // 选项数量/内容/长度不合规
-    BadAnswer,         // 答案与题型/选项数不匹配
-    BadExplanation,    // 解析超长
-    BadDifficulty,     // 不在 1-5
+    BadType, // type 不在 single/multi/judge
+    BadStem, // 题干为空或超长
+    BadOptions, // 选项数量/内容/长度不合规
+    BadAnswer, // 答案与题型/选项数不匹配
+    BadExplanation, // 解析超长
+    BadDifficulty, // 不在 1-5
 };
 
 /// 注：validateQuestion 可能附加 OOM 类错误，而入参多为 anyerror，无法穷举
@@ -339,8 +339,8 @@ fn likePattern(a: std.mem.Allocator, kw: []const u8) ![]const u8 {
 
 const list_where =
     "(?1 = 0 OR category_id = ?1) AND (?2 = -1 OR course_id = ?2) AND " ++
-        "(?3 = '' OR type = ?3) AND (?4 = 0 OR difficulty = ?4) AND " ++
-        "(?5 = '' OR stem LIKE ?6 ESCAPE '\\') AND deleted = 0";
+    "(?3 = '' OR type = ?3) AND (?4 = 0 OR difficulty = ?4) AND " ++
+    "(?5 = '' OR stem LIKE ?6 ESCAPE '\\') AND deleted = 0";
 
 // 子树过滤用 SQLite 递归 CTE：各套 SQL 全部在 comptime 拼成常量（参数个数一致 ?1..?8），
 // 运行时只做常量选择。根分类绑 ?1；depth < 20 防 categories 父子环时无限递归。
@@ -353,8 +353,8 @@ const cte_subtree =
 
 const list_where_subtree =
     "(?1 = 0 OR category_id IN (SELECT id FROM sub)) AND (?2 = -1 OR course_id = ?2) AND " ++
-        "(?3 = '' OR type = ?3) AND (?4 = 0 OR difficulty = ?4) AND " ++
-        "(?5 = '' OR stem LIKE ?6 ESCAPE '\\') AND deleted = 0";
+    "(?3 = '' OR type = ?3) AND (?4 = 0 OR difficulty = ?4) AND " ++
+    "(?5 = '' OR stem LIKE ?6 ESCAPE '\\') AND deleted = 0";
 
 const order_limit = " ORDER BY id DESC LIMIT ?7 OFFSET ?8";
 
@@ -413,21 +413,39 @@ pub const DrawnQuestion = struct {
     options: []const []const u8,
 };
 
+const draw_head_exact = "SELECT id, type, stem, options FROM questions WHERE (?1 = 0 OR category_id = ?1) AND deleted = 0";
+const draw_head_sub =
+    "WITH RECURSIVE sub(id, depth) AS (" ++
+    " SELECT ?1, 0" ++
+    " UNION ALL" ++
+    " SELECT c.id, s.depth + 1 FROM categories c JOIN sub s ON c.parent_id = s.id" ++
+    " WHERE c.deleted = 0 AND s.depth < 20) " ++
+    "SELECT id, type, stem, options FROM questions WHERE category_id IN (SELECT id FROM sub) AND deleted = 0";
+const draw_tail_rand = " ORDER BY RANDOM() LIMIT ?2";
+const draw_tail_seq = " ORDER BY id ASC LIMIT ?2";
+
+// ++ 是编译期拼接，运行时只选常量
+const draw_sql_exact_rand = draw_head_exact ++ draw_tail_rand;
+const draw_sql_exact_seq = draw_head_exact ++ draw_tail_seq;
+const draw_sql_sub_rand = draw_head_sub ++ draw_tail_rand;
+const draw_sql_sub_seq = draw_head_sub ++ draw_tail_seq;
+
+/// category_id=0 全量；subtree=false 精确匹配分类（?1=0 即全量），true 含所有子孙分类（按专业子树抽题）
 pub fn drawForPractice(
     dbh: *db.Db,
     a: std.mem.Allocator,
     category_id: i64,
+    subtree: bool,
     random_order: bool,
     count: i64,
 ) ![]DrawnQuestion {
     var items: std.ArrayList(DrawnQuestion) = .empty;
-    const sql_head = "SELECT id, type, stem, options FROM questions WHERE category_id = ?1 AND deleted = 0";
-    // ++ 是编译期拼接，order 必须是 comptime 字面量，故两个分支各自完整拼好
-    const sql = if (random_order)
-        sql_head ++ " ORDER BY RANDOM() LIMIT ?2"
+    const use_sub = subtree and category_id > 0;
+    const sql = if (use_sub)
+        (if (random_order) draw_sql_sub_rand else draw_sql_sub_seq)
     else
-        sql_head ++ " ORDER BY id ASC LIMIT ?2";
-    var rows = try dbh.conn.rows(sql, .{ category_id, count });
+        (if (random_order) draw_sql_exact_rand else draw_sql_exact_seq);
+    var rows = try dbh.conn.rows(sql, .{ @max(category_id, 0), count });
     defer rows.deinit();
     while (rows.next()) |row| {
         try items.append(a, .{
@@ -684,7 +702,7 @@ test "question_repo CRUD / list / draw" {
     try std.testing.expectEqual(@as(i64, 0), (try list(&dbh, a, .{ .category_id = 10, .include_subtree = true, .type = "single" })).total);
 
     // 抽题：章节顺序抽（id 升序）；随机抽也在池内；used_count 联动
-    const drawn = try drawForPractice(&dbh, a, 7, false, 10);
+    const drawn = try drawForPractice(&dbh, a, 7, false, false, 10);
     try std.testing.expectEqual(@as(usize, 2), drawn.len);
     try std.testing.expect(drawn[0].id < drawn[1].id);
     try std.testing.expectEqualStrings("C", (try getById(&dbh, a, id1)).?.answer); // 抽题不影响答案列
@@ -692,14 +710,17 @@ test "question_repo CRUD / list / draw" {
     try bumpUsed(&dbh, &ids);
     try std.testing.expectEqual(@as(i64, 1), (try getById(&dbh, a, id1)).?.used_count);
     // 题池不足时返回现有全部
-    try std.testing.expectEqual(@as(usize, 2), (try drawForPractice(&dbh, a, 7, true, 99)).len);
-    try std.testing.expectEqual(@as(usize, 0), (try drawForPractice(&dbh, a, 999, false, 5)).len);
+    try std.testing.expectEqual(@as(usize, 2), (try drawForPractice(&dbh, a, 7, false, true, 99)).len);
+    try std.testing.expectEqual(@as(usize, 0), (try drawForPractice(&dbh, a, 999, false, false, 5)).len);
+    // 子树抽题：cat 在根分类子树内应能抽到；category_id=0 全量
+    try std.testing.expect((try drawForPractice(&dbh, a, 7, true, false, 10)).len > 0);
+    try std.testing.expect((try drawForPractice(&dbh, a, 0, false, false, 10)).len > 0);
 
     // 软删：列表/抽题/详情全部隐身
     try deleteSoft(&dbh, id1);
     try std.testing.expect((try getById(&dbh, a, id1)) == null);
     try std.testing.expect((try getByIdIncludingDeleted(&dbh, a, id1)) != null);
-    try std.testing.expectEqual(@as(usize, 1), (try drawForPractice(&dbh, a, 7, false, 10)).len);
+    try std.testing.expectEqual(@as(usize, 1), (try drawForPractice(&dbh, a, 7, false, false, 10)).len);
 
     // 分类计数（未删）：cat7 只剩多选题 1 道，cat11 判断题 1 道
     const stats = try countByCategory(&dbh, a);

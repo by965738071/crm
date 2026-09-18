@@ -1,20 +1,23 @@
-# 医学考试学习平台开发计划
+# 多专业考试学习平台开发计划
 
-> 版本：v1.2（2026-09-14）
+> 版本：v1.3（2026-09-18）
 > 状态：第 1 期已完成，待开发第 2 期
-> v1.2 变更：第 1 期完成并验证（见 9 节备注）；项目目录名 `crm` 保持不变，仅作代号
-> v1.1 变更：移除 CRM 相关内容（客户档案、跟进记录、待跟进），仅保留医学考试学习平台
+> v1.3 变更：从单一医学考试平台升级为**多专业通用考试学习平台**：新增专业（projects）一等实体，
+> 专业 = 一棵分类子树（root_category_id），课程/资料/题库/试卷等核心内容模型不变，按分类树归属专业；
+> 前台顶栏增加专业频道切换，后台新增「专业管理」页；项目目录名 `crm` 保持不变，仅作代号
+> v1.2 变更：第 1 期完成并验证（见 9 节备注）
+> v1.1 变更：移除 CRM 相关内容（客户档案、跟进记录、待跟进），仅保留考试学习平台
 
 ---
 
 ## 1. 业务理解
 
-做一个**医学考试学习平台**：
+做一个**多专业通用考试学习平台**（医学、建工、土木等任意考试品类均可入驻）：
 
-- **学员端**：医生/医学生等用户注册后，在平台上学习课程（视频/音频/文档）、查阅资料、刷题练习、参加模拟考试、记笔记、收藏。
+- **学员端**：考生/从业者等用户注册后，在平台上选定专业频道，学习课程（视频/音频/文档）、查阅资料、刷题练习、参加模拟考试、记笔记、收藏。
 - **管理后台**：运营/管理员管理用户、课程内容、题库、资料、公告、订单（手动标记支付）。
 - **商业模式**：内容付费（课程/资料）。**第一期不接在线支付**，订单由管理员手动标记"已支付"（如通过线下/微信转账后人工确认）。
-- **目标用户**：备考执业医师、中医助理医师等医学资格考试的人群（分类以考试学科组织，但采用通用分类树，不写死）。
+- **目标用户**：备考各类职业资格考试的人群（如医师资格、二级建造师、土木工程师等；内容按「专业 + 通用分类树」组织，不写死任何品类）。
 
 ### 关键决策记录（对话确认）
 
@@ -41,7 +44,7 @@
 | 数据库 | SQLite（经 `zqlite`，框架 ORM 已封装） | 单文件 `./data/crm.db` |
 | 密码哈希 | `std.crypto.pwhash.argon2id` | Zig 标准库自带 |
 | 前端 | Vue 3 + Vite + Element Plus + Pinia + vue-router + axios | 单项目双端（学员/管理后台） |
-| 部署 | Zig 二进制托管 API + 前端 dist 静态文件 | 开发期前端 vite dev server 代理 `/api` 到 Zig |
+| 部署 | 单文件：`web/dist` 在 `zig build` 时以 `@embedFile` 内嵌进二进制（v1.4） | `-Dembed-dist=false` 或 dist 缺失时回退为运行期托管 web/dist；开发期用 vite dev server 代理 `/api` |
 
 ### http_framework 能力映射（已核对 README）
 
@@ -60,7 +63,7 @@
 
 ```mermaid
 graph TD
-    B[浏览器] -->|静态资源| S[StaticFileServer 托管 web/dist]
+    B[浏览器] -->|静态资源| S[内嵌 dist 内存表（回退：StaticFileServer 托管 web/dist）]
     B -->|/api/* JSON| R[Router]
     R --> MW[中间件链: RequestId → Security → CORS → RateLimit → Auth]
     MW --> H[业务 Handlers]
@@ -122,7 +125,8 @@ src/
 - A5 管理员：用户列表（搜索/筛选/分页）、禁用/启用、改角色（仅超管）
 
 ### M-B 分类与内容
-- B1 多级分类树（CRUD、排序、树查询），预置：执业医师/中医助理… 等一级分类（种子数据，可改）
+- B0 专业（projects，v1.3 新增）：CRUD + 启用/停用；创建自动生成同名根分类，改名同步；树内有科目/内容时禁删；专业代码 code 唯一
+- B1 多级分类树（CRUD、排序、树查询，?project_id= 可只看某专业子树）；专业根分类禁止在分类页改名/删除，科目挂在根下（可改，不预置）
 - B2 课程 CRUD（标题、封面、简介、价格、免费标记、分类、状态草稿/上架、排序）
 - B3 章节 CRUD（课程下三级：课程→章→课时）
 - B4 课时：类型 = 视频/音频/文档(PDF)/Markdown/图文；关联资料库文件；免费试看标记
@@ -176,7 +180,13 @@ users(id INTEGER PK, email TEXT UNIQUE, username TEXT UNIQUE, password_hash TEXT
       status TEXT DEFAULT 'active',                                  -- active/disabled
       created_at, updated_at)
 
--- 分类树
+-- 专业（考试项目，v5）：一个专业 = 一棵分类子树，内容按分类树归属专业，内容表不加专业字段
+projects(id PK, code TEXT UNIQUE, name TEXT, logo, description,
+         subject_label TEXT DEFAULT '科目',    -- 科目别称：科目/章节/专业实务…
+         sort INTEGER DEFAULT 0, status TEXT DEFAULT 'active',  -- active/disabled
+         root_category_id INTEGER, deleted, created_at, updated_at)
+
+-- 分类树（专业根分类由 projects 自动维护）
 categories(id PK, parent_id INTEGER DEFAULT 0, name TEXT, sort INTEGER DEFAULT 0, deleted)
 
 -- 课程
@@ -268,8 +278,9 @@ announcements(id PK, title, content TEXT, status TEXT DEFAULT 'draft',
 | POST | /auth/login | 登录 |
 | POST | /auth/logout | 登出 |
 | GET | /auth/me | 当前用户（含角色） |
-| GET | /categories | 分类树 |
-| GET | /courses | 课程分页列表（?category_id=&keyword=&page=&size=） |
+| GET | /projects | 专业列表（启用中，含 root_category_id 供前台频道过滤） |
+| GET | /categories | 分类树（?project_id= 时只返回该专业根分类下的科目子树） |
+| GET | /courses | 课程分页列表（?category_id=&sub=1 含子树&keyword=&page=&size=） |
 | GET | /courses/:id | 课程详情+章节课时树（未付费用户锁定非免费课时内容） |
 | GET | /resources | 资料分页列表（?category_id=&type=） |
 | GET | /announcements | 已发布公告（?keyword=&page=&size=，草稿/软删隐身） |
@@ -286,7 +297,7 @@ announcements(id PK, title, content TEXT, status TEXT DEFAULT 'draft',
 | GET | /me/progress?course_id= | 我的进度 |
 | POST | /learning/progress | 上报进度 {lesson_id,status,position} |
 | POST | /learning/heartbeat | 时长心跳 {lesson_id,seconds} |
-| POST | /practice/start | 开始练习 {mode:chapter/random, category_id, count} → 题目（不含答案） |
+| POST | /practice/start | 开始练习 {mode:chapter/random, category_id, sub?, count} → 题目（不含答案）；category_id=0 全量，sub=1 含子树 |
 | POST | /practice/submit | 逐题提交 {question_id,answer,duration} → 判分结果 |
 | GET | /practice/wrong | 错题本（分页，?mastered=0） |
 | POST | /practice/wrong/:id/master | 标记已掌握 |
@@ -311,7 +322,8 @@ announcements(id PK, title, content TEXT, status TEXT DEFAULT 'draft',
 |---|---|---|
 | GET/PUT | /admin/users, /admin/users/:id, /admin/users/:id/status | 用户管理、禁用启用 |
 | PUT | /admin/users/:id/role | 改角色（仅超管） |
-| POST/PUT/DELETE | /admin/categories | 分类 |
+| GET/POST/PUT/DELETE | /admin/projects | 专业管理（CRUD；根分类随建/改名同步；树内有科目/内容时 409） |
+| POST/PUT/DELETE | /admin/categories | 分类（专业根分类禁改禁删） |
 | POST/PUT/DELETE | /admin/courses, chapters, lessons | 内容管理 |
 | POST | /admin/upload | multipart 上传 → resource |
 | POST/PUT/DELETE | /admin/resources | 资料管理 |
@@ -330,7 +342,7 @@ announcements(id PK, title, content TEXT, status TEXT DEFAULT 'draft',
 
 ## 8. 前端页面清单（Vue 3 单项目）
 
-技术：Vue 3 `<script setup>` + Vite + Element Plus + Pinia + vue-router + axios；开发代理 `/api → http://localhost:8080`；生产 `zig build` 后由 StaticFileServer 托管 `web/dist`。
+技术：Vue 3 `<script setup>` + Vite + Element Plus + Pinia + vue-router + axios；开发代理 `/api → http://localhost:8080`；生产 `zig build` 时 `web/dist` 内嵌进二进制（`build.zig` 代码生成 `dist_assets` 模块），由 `src/web/dist_embed.zig` 接管 `/`、`/static/*`、`/assets/*` 与 SPA 回退；改前端后必须重新 `zig build` 才会更新二进制内的产物。
 
 ```
 web/
@@ -346,7 +358,7 @@ web/
                   ExamResult, MyCourses, MyNotes, MyFavorites, MyOrders, Profile,
                   Announcements, NotFound
                   （复用组件 components/QuestionCard：练习/错题/收藏/考试/回顾五场景）
-      admin/      Dashboard, UserList, CategoryManage, CourseManage(含章节编辑),
+      admin/      Dashboard, UserList, ProjectManage, CategoryManage, CourseManage(含章节编辑),
                   LessonEdit, ResourceManage(上传), QuestionManage(批量导入),
                   ExamManage, OrderManage, AnnouncementManage
 ```

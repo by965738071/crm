@@ -455,17 +455,17 @@ test "course_repo courses/chapters/lessons lifecycle" {
     defer dbh.close();
 
     // 课程 CRUD
-    const c1 = try create(&dbh, 1, "中医学基础", "cover.jpg", "简介", "详情", 9900, 0, "published", 1, 100);
+    const c1 = try create(&dbh, 1, "示例课程", "cover.jpg", "简介", "详情", 9900, 0, "published", 1, 100);
     try std.testing.expect(c1 > 0);
     _ = try create(&dbh, 2, "内科学（草稿）", "", "", "", 0, 1, "draft", 2, 101);
 
     const got = (try getById(&dbh, a, c1)).?;
-    try std.testing.expectEqualStrings("中医学基础", got.title);
+    try std.testing.expectEqualStrings("示例课程", got.title);
     try std.testing.expectEqual(@as(i64, 9900), got.price);
 
-    try update(&dbh, c1, 1, "中医学基础（更新）", "c.jpg", "s", "d", 8800, 1, "published", 3, 200);
+    try update(&dbh, c1, 1, "示例课程（更新）", "c.jpg", "s", "d", 8800, 1, "published", 3, 200);
     const updated = (try getById(&dbh, a, c1)).?;
-    try std.testing.expectEqualStrings("中医学基础（更新）", updated.title);
+    try std.testing.expectEqualStrings("示例课程（更新）", updated.title);
 
     // 列表：published only / 关键字 / 分类
     const all = try list(&dbh, a, .{ .only_published = true });
@@ -481,7 +481,7 @@ test "course_repo courses/chapters/lessons lifecycle" {
 
     // 分类树 1 -> 2 -> 3，子树过滤（c1 → cat1 已上架，c2 → cat2 草稿）
     try dbh.exec("INSERT INTO categories (id, parent_id, name) VALUES (1, 0, '根'), (2, 1, '子'), (3, 2, '孙')", .{});
-    _ = try create(&dbh, 3, "外科护理", "", "", "", 0, 1, "published", 4, 102);
+    _ = try create(&dbh, 3, "示例课程C", "", "", "", 0, 1, "published", 4, 102);
     // 精确：cat1 只有 c1；子树：cat1 含 cat1+cat2+cat3 全部 3 门
     try std.testing.expectEqual(@as(i64, 1), (try list(&dbh, a, .{ .category_id = 1 })).total);
     try std.testing.expectEqual(@as(i64, 3), (try list(&dbh, a, .{ .category_id = 1, .include_subtree = true })).total);

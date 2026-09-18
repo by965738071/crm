@@ -278,11 +278,33 @@ const v4 = [_][]const u8{
     "ALTER TABLE audit_logs ADD COLUMN status INTEGER NOT NULL DEFAULT 0",
 };
 
+/// v5：专业（考试项目）表。一个专业 = 一棵分类子树（root_category_id 指向根分类），
+/// 内容通过分类树归属专业，故内容表不加专业字段；存量分类不强行归属，显示在未分组视图。
+const v5 = [_][]const u8{
+    \\CREATE TABLE IF NOT EXISTS projects (
+    \\  id INTEGER PRIMARY KEY AUTOINCREMENT,
+    \\  code TEXT NOT NULL UNIQUE,
+    \\  name TEXT NOT NULL,
+    \\  logo TEXT NOT NULL DEFAULT '',
+    \\  description TEXT NOT NULL DEFAULT '',
+    \\  subject_label TEXT NOT NULL DEFAULT '科目',
+    \\  sort INTEGER NOT NULL DEFAULT 0,
+    \\  status TEXT NOT NULL DEFAULT 'active',
+    \\  root_category_id INTEGER NOT NULL DEFAULT 0,
+    \\  deleted INTEGER NOT NULL DEFAULT 0,
+    \\  created_at INTEGER NOT NULL,
+    \\  updated_at INTEGER NOT NULL
+    \\)
+    ,
+    "CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status)",
+};
+
 pub const migrations = [_]Migration{
     .{ .sql = &v1 },
     .{ .sql = &v2 },
     .{ .sql = &v3 },
     .{ .sql = &v4 },
+    .{ .sql = &v5 },
 };
 
 /// 执行所有未应用的迁移，并写入种子数据

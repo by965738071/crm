@@ -11,8 +11,13 @@ export const authApi = {
   changePassword: (d) => http.put('/auth/password', d),
 }
 
+export const projectApi = {
+  list: () => http.get('/projects'),
+}
+
 export const categoryApi = {
-  tree: () => http.get('/categories'),
+  // 可选 { project_id }：只返回该专业根分类下的科目子树
+  tree: (params) => http.get('/categories', { params }),
 }
 
 export const courseApi = {
@@ -83,6 +88,11 @@ export const adminApi = {
   setUserStatus: (id, status) => http.put(`/admin/users/${id}/status`, { status }),
   setUserRole: (id, role) => http.put(`/admin/users/${id}/role`, { role }),
   resetUserPassword: (id, password) => http.post(`/admin/users/${id}/reset-password`, { password }),
+  // 专业（考试项目；根分类随专业自动创建，不在分类管理里单独维护）
+  projects: () => http.get('/admin/projects'),
+  createProject: (d) => http.post('/admin/projects', d),
+  updateProject: (id, d) => http.put(`/admin/projects/${id}`, d),
+  deleteProject: (id) => http.delete(`/admin/projects/${id}`),
   // 分类（列表复用公开 categoryApi.tree）
   createCategory: (d) => http.post('/admin/categories', d),
   updateCategory: (id, d) => http.put(`/admin/categories/${id}`, d),

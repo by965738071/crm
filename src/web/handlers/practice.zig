@@ -20,6 +20,8 @@ const practice_repo = @import("../../db/practice_repo.zig");
 const StartBody = struct {
     mode: []const u8 = "chapter", // chapter | random
     category_id: i64 = 0,
+    /// 1 = 按分类子树抽题（选专业/父分类时）；0 = 精确分类；category_id=0 恒为全量
+    sub: i64 = 0,
     count: i64 = 10,
 };
 
@@ -42,13 +44,13 @@ pub fn start(ctx: *framework.Context, res: *framework.Response) !void {
     else if (std.mem.eql(u8, body.mode, "chapter")) false else {
         return ctx.failWith(framework.AppError.badRequest("mode 仅支持 chapter/random"));
     };
-    if (body.category_id <= 0 or (try category_repo.getById(st.db, ctx.arena, body.category_id)) == null)
+    if (body.category_id < 0 or (body.category_id > 0 and (try category_repo.getById(st.db, ctx.arena, body.category_id)) == null))
         return ctx.failWith(framework.AppError.badRequest("分类不存在"));
     const count = @min(50, @max(1, body.count)); // 单次抽题上限 50，防刷
 
-    const drawn = try question_repo.drawForPractice(st.db, ctx.arena, body.category_id, random_order, count);
+    const drawn = try question_repo.drawForPractice(st.db, ctx.arena, body.category_id, body.sub == 1, random_order, count);
     if (drawn.len == 0)
-        return ctx.failWith(framework.AppError.badRequest("该分类下暂无题目"));
+        return ctx.failWith(framework.AppError.badRequest("当前抽题范围暂无题目"));
 
     // used_count 事务内递增（与抽题尽量原子；即使失败只影响统计列，不影响抽题结果）
     var ids: std.ArrayList(i64) = .empty;

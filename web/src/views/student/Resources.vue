@@ -1,9 +1,11 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { resourceApi } from '../../api'
+import { useProjectStore } from '../../stores/project'
 import { fileSize, datetime } from '../../utils'
 import PaginationBar from '../../components/PaginationBar.vue'
 
+const project = useProjectStore()
 const loading = ref(false)
 const items = ref([])
 const total = ref(0)
@@ -24,6 +26,7 @@ async function load() {
   loading.value = true
   try {
     const r = await resourceApi.list({
+      ...project.scope(),
       type: query.type || undefined,
       keyword: query.keyword || undefined,
       page: query.page,
@@ -42,6 +45,10 @@ function search() {
 }
 
 onMounted(load)
+watch(
+  () => project.currentId,
+  () => search(),
+)
 </script>
 
 <template>

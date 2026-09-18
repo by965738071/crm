@@ -17,6 +17,7 @@ const activeMenu = computed(() => {
 const menus = [
   { path: '/admin/dashboard', title: '数据看板', icon: 'DataLine' },
   { path: '/admin/users', title: '用户管理', icon: 'User' },
+  { path: '/admin/projects', title: '专业管理', icon: 'Collection' },
   { path: '/admin/categories', title: '分类管理', icon: 'Folder' },
   { path: '/admin/courses', title: '课程管理', icon: 'Notebook' },
   { path: '/admin/resources', title: '资料管理', icon: 'Files' },
@@ -46,7 +47,7 @@ async function onLogout() {
   <el-container class="page">
     <el-aside width="220px" class="side">
       <div class="brand">
-        <span class="logo">🩺</span>
+        <span class="logo">📚</span>
         <span>管理后台</span>
       </div>
       <el-menu :default-active="activeMenu" router class="menu" background-color="transparent"
@@ -56,7 +57,7 @@ async function onLogout() {
           <span>{{ m.title }}</span>
         </el-menu-item>
       </el-menu>
-      <div class="side-foot">Medical Exam Admin</div>
+      <div class="side-foot">Exam Learning Admin</div>
     </el-aside>
     <el-container class="wrap">
       <el-header class="hd" height="56px">

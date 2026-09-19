@@ -117,9 +117,11 @@ export const adminApi = {
   examStats: () => http.get('/admin/exam-stats'),
   uploadResource: (fd) => http.post('/admin/upload', fd, { timeout: 300000 }),
   // 题目图片：multipart 字段 file（png/jpg/jpeg/gif/webp，≤5MB）→ { url, size }
-  uploadImage: (file) => {
+  uploadImage: (file, categoryId) => {
     const fd = new FormData()
     fd.append('file', file)
+    // 带 category_id 时图片归入 images/<分类id>/<yyyy-mm>/，与题目分类关联；缺省归入 misc
+    if (categoryId) fd.append('category_id', String(categoryId))
     return http.post('/admin/upload-image', fd, { timeout: 60000 })
   },
   updateResource: (id, d) => http.put(`/admin/resources/${id}`, d),

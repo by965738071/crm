@@ -1,4 +1,3 @@
-//!
 //! 存储布局：`<base>/<yyyy-mm>/<随机hex>.<ext>`，base 默认 `data/uploads`。
 //! 数据库里存相对路径（相对进程工作目录），下载时从相对路径拼绝对再读。
 
@@ -126,16 +125,25 @@ pub fn saveUpload(
     return saveUnder(io, a, base, "uploads", safe_name, data);
 }
 
-/// 题目图片上传：落盘 `data/uploads/images/<yyyy-mm>/<hex>.<ext>`，
-/// 返回相对路径 `uploads/images/<yyyy-mm>/<hex>.<ext>`（对外 URL 前缀 /uploads/images/）。
+/// 题目图片上传：按分类分组落盘 `data/uploads/images/<group>/<yyyy-mm>/<hex>.<ext>`，
+/// 返回相对路径 `uploads/images/<group>/<yyyy-mm>/<hex>.<ext>`（对外 URL 前缀 /uploads/images/）。
+/// group 是调用方校验过的单段路径（分类 id 或 "misc"），仅允许字母数字及 _-.。
 pub fn saveImage(
     io: std.Io,
     a: std.mem.Allocator,
     safe_name: []const u8,
     data: []const u8,
+    group: []const u8,
 ) !SaveResult {
     if (data.len > max_image_size) return error.FileTooBig;
-    return saveUnder(io, a, images_dir, "uploads/images", safe_name, data);
+    var ok = group.len > 0 and group.len <= 32;
+    for (group) |ch| {
+        if (!(std.ascii.isAlphanumeric(ch) or ch == '_' or ch == '-' or ch == '.')) ok = false;
+    }
+    if (!ok) return error.InvalidImageGroup;
+    const base = try std.fmt.allocPrint(a, "{s}/{s}", .{ images_dir, group });
+    const rel_prefix = try std.fmt.allocPrint(a, "uploads/images/{s}", .{group});
+    return saveUnder(io, a, base, rel_prefix, safe_name, data);
 }
 
 fn saveUnder(
@@ -179,7 +187,9 @@ fn saveUnder(
         break;
     }
     defer file.close(io);
-    try file.writeStreamingAll(io, data);
+    // zio 0.17 在 Windows 上 File.writeStreamingAll 对 overlapped handle 传 NULL
+    // OVERLAPPED（WriteFile 返回 87），改用 positional 写（走事件循环，正确携带 OVERLAPPED）。
+    try file.writePositionalAll(io, data, 0);
 
     return .{
         .rel_path = try std.fmt.allocPrint(a, "{s}/{s}/{s}", .{ rel_prefix, month, stored_name }),

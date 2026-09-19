@@ -147,7 +147,8 @@ async function onPickImage(e) {
   const f = e.target.files && e.target.files[0]
   if (!f) return
   try {
-    const r = await adminApi.uploadImage(f)
+    // 携当前题目分类 id：图片按分类归档到 images/<分类id>/<yyyy-mm>/
+    const r = await adminApi.uploadImage(f, form.category_id)
     const snippet = `![图](${r.url})`
     const t = imgTarget.value
     if (t === 'stem') {

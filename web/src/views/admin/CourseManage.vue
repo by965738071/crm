@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi, categoryApi } from '../../api'
-import { money, datetime } from '../../utils'
+import { money, datetime, rollupCategoryCounts } from '../../utils'
 import PaginationBar from '../../components/PaginationBar.vue'
 
 const router = useRouter()
@@ -33,7 +33,9 @@ const catOptions = computed(() => {
 
 // ---- 左侧分类导航 ----
 const treeRef = ref(null)
+// 分类统计：直接挂在该分类下的计数；树节点展示用 navCounts（含子孙分类）
 const counts = ref({}) // category_id -> 课程数（0 = 未分类）
+const navCounts = computed(() => rollupCategoryCounts(treeData.value, counts.value))
 
 // “全部课程”伪根节点（id=0），真实分类挂在它下面
 const navTree = computed(() => [{ id: 0, name: '全部课程', children: catOptions.value }])
@@ -43,7 +45,7 @@ const allTotal = computed(() => Object.values(counts.value).reduce((s, n) => s +
 
 function countOf(id) {
   if (id === 0) return allTotal.value
-  return counts.value[id] || 0
+  return navCounts.value[id] || 0
 }
 
 function currentCatName() {

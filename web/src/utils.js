@@ -30,6 +30,20 @@ export function fileSize(n) {
   return `${v.toFixed(i ? 1 : 0)} ${units[i]}`
 }
 
+// 分类统计归并：把「直接挂在该分类下的计数」按分类树自底向上累加，
+// 使父分类数字 = 自身 + 全部子孙分类，与列表「含子分类」查询语义一致。
+export function rollupCategoryCounts(tree, m) {
+  const out = {}
+  const sum = (n) => {
+    let t = m[n.id] || 0
+    for (const c of n.children || []) t += sum(c)
+    out[n.id] = t
+    return t
+  }
+  for (const node of tree || []) sum(node)
+  return out
+}
+
 export function duration(sec) {
   if (!sec) return '0:00'
   const m = Math.floor(sec / 60)

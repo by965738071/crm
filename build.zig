@@ -2,9 +2,9 @@ const std = @import("std");
 
 /// CRM（多专业考试学习平台）构建脚本
 /// 后端：Zig + http_framework（自研）+ zqlite（SQLite）
-/// 前端：web/（Vue 3 + Vite）。构建产物 web/dist 默认在编译期以 @embedFile
-/// 嵌入可执行文件（单文件部署）；web/dist 缺失或 -Dembed-dist=false 时
-/// 回退为运行期托管 web/dist 目录（开发模式）。
+/// 前端：web/（Vue 3 + Vite）。-Dembed-dist=true 时把 web/dist 以 @embedFile
+/// 编进可执行文件（单文件部署，默认关闭）；未内嵌时回退为运行期托管
+/// web/dist 目录（开发模式）。
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});

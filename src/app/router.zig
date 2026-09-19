@@ -37,7 +37,7 @@ pub fn register(st: *state.State, router: *framework.Router) !void {
         try router.route(.GET, "/assets/*", framework.Handler.fromFn(dist_embed.handleAssets));
     } else {
         try router.route(.GET, "/static/*", framework.Handler.initSingleton(&st.static_assets));
-        try router.route(.GET, "/assets/*", framework.Handler.initSingleton(&st.static_assets));
+        try router.route(.GET, "/assets/*", framework.Handler.initSingleton(&st.static_vite));
         try router.route(.GET, "/", framework.Handler.initSingleton(&st.static_index));
     }
     // 题目图片静态资源（data/uploads/images，运行期上传产物，始终走文件系统）

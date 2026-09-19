@@ -56,6 +56,7 @@ pub fn appMain(io: std.Io, allocator: std.mem.Allocator) !void {
         .login_guard = identity.LoginGuard.init(allocator),
         .static_index = framework.StaticFileServer.init(allocator, io, static_dir, "/"),
         .static_assets = framework.StaticFileServer.init(allocator, io, static_dir, "/static"),
+        .static_vite = framework.StaticFileServer.init(allocator, io, static_dir ++ "/assets", "/assets"),
         .image_files = framework.StaticFileServer.init(allocator, io, data_dir ++ "/uploads/images", "/uploads/images"),
         .security = .{ .config = .{} },
         .cors = .{ .config = .{} },

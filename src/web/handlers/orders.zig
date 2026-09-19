@@ -55,7 +55,7 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
     const page = common.parseQueryInt(ctx, "page", 1, 100, 1);
     const size = common.parseQueryInt(ctx, "size", 20, 100, 1);
     const status = try statusFilter(ctx);
-    const keyword = ctx.query("keyword") orelse "";
+    const keyword = ctx.queryDecoded("keyword") catch null orelse "";
     const user_id = common.parseQueryInt(ctx, "user_id", 0, 1 << 40, 0);
 
     const r = try order_repo.list(st.db, ctx.arena, .{

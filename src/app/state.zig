@@ -30,6 +30,8 @@ pub const State = struct {
 
     static_index: framework.StaticFileServer,
     static_assets: framework.StaticFileServer,
+    /// vite 产物 /assets/* 的磁盘回退（mount 必须与路由前缀一致，否则剥不掉前缀永远 404）
+    static_vite: framework.StaticFileServer,
     /// 题目图片静态服务（仅暴露 data/uploads/images，随机文件名防猜测）
     image_files: framework.StaticFileServer,
     /// SPA 深链回退（index.html 启动时读入；前端未构建时为空，退回 JSON 404）

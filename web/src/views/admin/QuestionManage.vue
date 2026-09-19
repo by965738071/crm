@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi, categoryApi } from '../../api'
 import PaginationBar from '../../components/PaginationBar.vue'
+import RichText from '../../components/RichText.vue'
 
 const loading = ref(false)
 const tableRef = ref(null)
@@ -163,11 +164,6 @@ async function onPickImage(e) {
   } catch {
     ElMessage.error('图片上传失败，请重试')
   }
-}
-
-// 列表展示时把图片语法转成占位文本
-function stripImages(v) {
-  return (v || '').replace(/![^\[]*\]\([^)]*\)/g, '[图]')
 }
 
 const typeMap = {
@@ -436,8 +432,8 @@ onMounted(async () => {
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="题干" min-width="280" show-overflow-tooltip>
-            <template #default="{ row }">{{ stripImages(row.stem) }}</template>
+          <el-table-column label="题干" min-width="280">
+            <template #default="{ row }"><RichText :text="row.stem" class="stem-rich" /></template>
           </el-table-column>
           <el-table-column label="分类" width="130" show-overflow-tooltip>
             <template #default="{ row }">{{ catMap[row.category_id] || '-' }}</template>
@@ -482,6 +478,7 @@ onMounted(async () => {
             <el-icon><Picture /></el-icon>插入图片
           </el-button>
           <span class="hint block">支持在题干中插入图片，学员端将渲染成图</span>
+          <div v-if="form.stem.includes('![')" class="md-preview">预览：<RichText :text="form.stem" /></div>
         </el-form-item>
         <el-form-item v-if="needOptions" label="选项">
           <div class="opts">
@@ -521,6 +518,7 @@ onMounted(async () => {
           <el-button size="small" text type="primary" class="inline-img-btn" @click="pickImage('expl')">
             <el-icon><Picture /></el-icon>插入图片
           </el-button>
+          <div v-if="form.explanation.includes('![')" class="md-preview">预览：<RichText :text="form.explanation" /></div>
         </el-form-item>
         <el-form-item label="难度">
           <el-input-number v-model="form.difficulty" :min="1" :max="5" controls-position="right" />
@@ -572,6 +570,14 @@ onMounted(async () => {
 .proj-filter { width: 150px; }
 .hidden-input { display: none; }
 .inline-img-btn { margin-top: 6px; }
+/* 列表题干：最多 3 行折叠，图片仍可以「图N」占位 hover 预览 */
+.stem-rich {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.md-preview { margin-top: 4px; font-size: 13px; color: var(--el-text-color-secondary); }
 .opt-img-btn { margin: 0; }
 .w130 { width: 130px; }
 .w140 { width: 140px; }

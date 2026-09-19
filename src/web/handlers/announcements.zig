@@ -19,7 +19,7 @@ pub fn list(ctx: *framework.Context, res: *framework.Response) !void {
 
     const page = common.parseQueryInt(ctx, "page", 1, 100, 1);
     const size = common.parseQueryInt(ctx, "size", 10, 50, 1);
-    const keyword = ctx.query("keyword") orelse "";
+    const keyword = ctx.queryDecoded("keyword") catch null orelse "";
 
     const r = try announcement_repo.list(st.db, ctx.arena, .{
         .page = page,
@@ -49,7 +49,7 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
 
     const page = common.parseQueryInt(ctx, "page", 1, 100, 1);
     const size = common.parseQueryInt(ctx, "size", 20, 100, 1);
-    const keyword = ctx.query("keyword") orelse "";
+    const keyword = ctx.queryDecoded("keyword") catch null orelse "";
     const status = ctx.query("status") orelse "";
     if (status.len != 0 and !announcement_repo.validStatus(status)) {
         return ctx.failWith(framework.AppError.badRequest("status 仅支持 draft/published"));

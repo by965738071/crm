@@ -3,10 +3,26 @@
 /.zig-cache
 
 # 运行时数据（SQLite 库、上传文件、日志）不入库
-
+# 注意：crm.db 主文件已跟踪，但 wal/shm 是 SQLite 运行时产物，
+# 入库会在 pull 时因文件锁/内容漂移反复冲突，必须忽略。
+/data/crm.db-wal
+/data/crm.db-shm
 /data/logs/*
+
+# 误生成的 Windows 保留名文件与 macOS 垃圾文件
+nul
+.DS_Store
 
 # 集成测试临时数据库
 /.test_data/*
 bug.md
 dist/*
+
+# 杂散文件与备份目录
+/db-backup*/
+.DS_Store
+/web/dist/
+zig_office/
+node_modules/
+*.md
+scripts/

@@ -33,14 +33,14 @@
     // internet connectivity.
     .dependencies = .{
         .http_framework = .{
-            .path = "../wlw/http-framework"
-            //.url = "git+https://github.com/by965738071/http-framework#main",
-            
+            //.path = "../wlw/http-framework"
+            .url = "git+https://github.com/by965738071/http-framework#main",
+            .hash = "http_framework-1.0.0-1YqJfi7WDwDxdk6JwK98a_QCXLlI3Iz1fO5U7893SHdJ",
         },
 
         .zqlite = .{
-            .url = "git+https://github.com/karlseguin/zqlite.zig?ref=dev#3a4ec07c373b181a739a47a331f86289352fee57",
-            .hash = "zqlite-0.0.1-RWLaYz49nABcCXlOV690EXRLoexKyFDB9lCr5rsYfMQf",
+            .url = "git+https://github.com/karlseguin/zqlite.zig#dev",
+            .hash = "zqlite-0.0.1-RWLaY4Y8nADz2l5aBE-JVyDyM3sZzHjq0agNykuVZKqQ",
         },
     },
     // Specifies the set of files and directories that are included in this package.

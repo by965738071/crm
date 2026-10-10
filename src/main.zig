@@ -23,8 +23,8 @@ pub fn main(init: std.process.Init) !void {
                 },
             }
         }
-        try crm.framework.runZio(debug.allocator(), crm.appMain);
+        try crm.framework.runStd(debug.allocator(), crm.appMain);
     } else {
-        try crm.framework.runZio(init.arena.allocator(), crm.appMain);
+        try crm.framework.runStd(init.arena.allocator(), crm.appMain);
     }
 }

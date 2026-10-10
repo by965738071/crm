@@ -123,7 +123,7 @@ pub fn appMain(io: std.Io, allocator: std.mem.Allocator) !void {
 
     try router.register(st, &rt);
 
-    var server = try framework.Server.init(allocator, io, cfg, &rt);
+    var server = try framework.StdServer.init(allocator, io, cfg, &rt);
     errdefer server.deinit();
     server.setServices(&services); // services 是 appMain 栈上变量，run() 阻塞期间地址稳定
 

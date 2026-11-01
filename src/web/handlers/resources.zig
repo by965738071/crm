@@ -56,33 +56,21 @@ pub fn list(ctx: *framework.Context, res: *framework.Response) !void {
     const size = common.parseQueryInt(ctx, "size", 20, 100, 1);
     const category_id = common.parseQueryInt(ctx, "category_id", 0, 1 << 40, 0);
     const rtype = ctx.query("type") orelse "";
-    const keyword = ctx.queryDecoded("keyword") catch null orelse "";
+    const keyword = (ctx.queryDecoded("keyword") catch null) orelse "";
 
-    const cu = try authm.currentUserOptional(ctx, &st.session);
-    // 游客只看到公开资源；登录用户可见全部（下载仍按 is_public/enrollment 鉴权）
-    const items_only_public = cu == null;
+    // 资料中心仅展示公开资源（is_public=1）；私密资源只在管理后台可见。
+    // 是否登录不影响列表可见性，下载仍按 is_public/登录态鉴权。
     const include_subtree = common.parseQueryInt(ctx, "sub", 0, 1, 0) == 1;
 
     var r: resource_repo.ResourceList = undefined;
-    if (items_only_public) {
-        r = try resource_repo.listPublic(st.db, ctx.arena, .{
-            .page = page,
-            .size = size,
-            .category_id = category_id,
-            .include_subtree = include_subtree,
-            .rtype = rtype,
-            .keyword = keyword,
-        });
-    } else {
-        r = try resource_repo.list(st.db, ctx.arena, .{
-            .page = page,
-            .size = size,
-            .category_id = category_id,
-            .include_subtree = include_subtree,
-            .rtype = rtype,
-            .keyword = keyword,
-        });
-    }
+    r = try resource_repo.listPublic(st.db, ctx.arena, .{
+        .page = page,
+        .size = size,
+        .category_id = category_id,
+        .include_subtree = include_subtree,
+        .rtype = rtype,
+        .keyword = keyword,
+    });
     try respond.ok(res, .{ .items = r.items.items, .total = r.total, .page = page, .size = size });
 }
 
@@ -123,28 +111,89 @@ pub fn download(ctx: *framework.Context, res: *framework.Response) !void {
     defer file.close(ctx.io);
     const stat = try file.stat(ctx.io);
 
-    // Content-Disposition 带 UTF-8 文件名（RFC 5987）；orig_name 已过 safeBaseName 清洗无 CRLF 风险
-    const disp = try std.fmt.allocPrint(ctx.arena, "attachment; filename*=UTF-8''{s}", .{resource.orig_name});
+    // 视频/音频按 inline 输出（<video>/<audio> 标签直接取用本接口播放）；
+    // 其他类型保持 attachment 下载。
+    const inline_play = std.mem.startsWith(u8, resource.mime, "video/") or
+        std.mem.startsWith(u8, resource.mime, "audio/");
+    const disp = try std.fmt.allocPrint(ctx.arena, "{s}; filename*=UTF-8''{s}", .{ if (inline_play) "inline" else "attachment", resource.orig_name });
     _ = try res.header("Content-Disposition", disp);
+    // 宣告支持分段：播放器据此可发 Range 请求（拖动进度条必需）
+    _ = try res.header("Accept-Ranges", "bytes");
+
+    const content_type = if (resource.mime.len > 0) resource.mime else "application/octet-stream";
+
+    // Range 解析：仅支持单区间（"bytes=a-b" / "bytes=a-" / "bytes=-n"）。
+    // 头缺失或无法解析 → 200 全量 chunked（与旧行为一致，最稳）。
+    const total = stat.size;
+    const pr: ?PartialReq = if (ctx.header("Range")) |rh| parseByteRange(rh, total) else null;
+    if (pr != null and pr.?.start >= total) {
+        const cr = try std.fmt.allocPrint(ctx.arena, "bytes */{d}", .{total});
+        _ = try res.header("Content-Range", cr);
+        return ctx.failWith(framework.AppError.badRequest("Range 超出文件大小"));
+    }
 
     var stream_buf: [16 * 1024]u8 = undefined;
-    const content_type = if (resource.mime.len > 0) resource.mime else "application/octet-stream";
-    var stream = try res.stream(&stream_buf, .{
-        .content_length = null, // chunked：文件可能在 stat 后被截断，chunked 成帧最稳（同 static server 做法）
-        .content_type = content_type,
-    });
-
     var read_buf: [16 * 1024]u8 = undefined;
-    var offset: u64 = 0;
-    while (offset < stat.size) {
-        const to_read = @min(read_buf.len, stat.size - offset);
-        const bufs: []const []u8 = &.{read_buf[0..to_read]};
-        const n = try file.readPositional(ctx.io, bufs, offset);
-        if (n == 0) return error.UnexpectedEof;
-        try stream.writeAll(read_buf[0..n]);
-        offset += n;
+
+    if (pr) |r| {
+        // 206 分段输出（content_length 固定，播放器可精确对进度）
+        const n = r.len;
+        const cr = try std.fmt.allocPrint(ctx.arena, "bytes {d}-{d}/{d}", .{ r.start, r.start + n - 1, total });
+        _ = try res.header("Content-Range", cr);
+        _ = res.statusCode(.partial_content);
+        var stream = try res.stream(&stream_buf, .{ .content_length = n, .content_type = content_type });
+        try writeFileSlice(ctx.io, file, &stream, &read_buf, r.start, n);
+        try stream.end();
+        return;
     }
+
+    // 200 全量：chunked（文件可能在 stat 后被截断，chunked 成帧最稳，同 static server 做法）
+    var stream = try res.stream(&stream_buf, .{ .content_length = null, .content_type = content_type });
+    if (total > 0) try writeFileSlice(ctx.io, file, &stream, &read_buf, 0, total);
     try stream.end();
+}
+
+/// 解析后的单区间 Range 请求
+const PartialReq = struct { start: u64, len: u64 };
+
+/// 解析 `bytes=a-b` / `bytes=a-` / `bytes=-n` 单区间头；非法/多区间返回 null。
+fn parseByteRange(h: []const u8, total: u64) ?PartialReq {
+    const s = std.mem.trim(u8, h, " \t");
+    if (!std.mem.startsWith(u8, s, "bytes=")) return null;
+    const spec = std.mem.trim(u8, s["bytes=".len..], " \t");
+    if (std.mem.indexOfScalar(u8, spec, ',') != null) return null; // 多区间不支持
+    const dash = std.mem.indexOfScalar(u8, spec, '-') orelse return null;
+    const first = std.mem.trim(u8, spec[0..dash], " \t");
+    const last = std.mem.trim(u8, spec[dash + 1 ..], " \t");
+
+    if (first.len == 0) {
+        // 后缀区间：最后 n 字节
+        const n = std.fmt.parseInt(u64, last, 10) catch return null;
+        if (n == 0) return null;
+        const n2 = @min(n, total);
+        if (total == 0) return null;
+        return .{ .start = total - n2, .len = n2 };
+    }
+    const start = std.fmt.parseInt(u64, first, 10) catch return null;
+    if (last.len == 0) {
+        return .{ .start = start, .len = total - start };
+    }
+    const end = std.fmt.parseInt(u64, last, 10) catch return null;
+    if (end < start) return null;
+    return .{ .start = start, .len = end - start + 1 };
+}
+
+/// 从文件 offset 起写 n 字节到响应流（分段缓存写入）
+fn writeFileSlice(io: std.Io, file: std.Io.File, stream: anytype, buf: []u8, offset: u64, n: u64) !void {
+    var done: u64 = 0;
+    while (done < n) {
+        const to_read: u64 = @min(buf.len, n - done);
+        const bufs: []const []u8 = &.{buf[0..@intCast(to_read)]};
+        const rd = try file.readPositional(io, bufs, offset + done);
+        if (rd == 0) return error.UnexpectedEof;
+        try stream.writeAll(buf[0..rd]);
+        done += rd;
+    }
 }
 
 // ---------------------------------------------------------------- 管理端
@@ -156,7 +205,7 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
     const category_id = common.parseQueryInt(ctx, "category_id", 0, 1 << 40, 0);
     const include_subtree = common.parseQueryInt(ctx, "sub", 0, 1, 0) == 1;
     const rtype = ctx.query("type") orelse "";
-    const keyword = ctx.queryDecoded("keyword") catch null orelse "";
+    const keyword = (ctx.queryDecoded("keyword") catch null) orelse "";
 
     const r = try resource_repo.list(st.db, ctx.arena, .{
         .page = page,

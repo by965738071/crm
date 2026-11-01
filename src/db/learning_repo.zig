@@ -256,7 +256,7 @@ pub fn logStudy(dbh: *db.Db, user_id: i64, course_id: i64, lesson_id: i64, secon
 
     try dbh.exec(
         "INSERT INTO study_logs (user_id, course_id, lesson_id, seconds, date, created_at) SELECT ?1, ?2, ?3, ?4, ?5, ?6 " ++
-        "WHERE NOT EXISTS (SELECT 1 FROM study_logs WHERE user_id = ?7 AND lesson_id = ?8 AND date = ?9)",
+            "WHERE NOT EXISTS (SELECT 1 FROM study_logs WHERE user_id = ?7 AND lesson_id = ?8 AND date = ?9)",
         .{ user_id, course_id, lesson_id, seconds, date, now, user_id, lesson_id, date },
     );
 }
@@ -375,9 +375,9 @@ test "learning_repo enroll / progress / study log / my list" {
     const fc = try course_repo.create(&dbh, 1, "免费课程", "", "", "", 0, 1, "published", 0, now);
     const pc = try course_repo.create(&dbh, 1, "付费课程", "", "", "", 12900, 0, "published", 0, now);
     const ch = try course_repo.chapterCreate(&dbh, fc, "第一章", 1);
-    const l_free = try course_repo.lessonCreate(&dbh, fc, ch, "试看课时", "markdown", 0, "内容", 60, 1, 1);
-    const l_paid = try course_repo.lessonCreate(&dbh, fc, ch, "普通课时", "video", 0, "", 300, 0, 2);
-    const l_pc = try course_repo.lessonCreate(&dbh, pc, 0, "付费课课时", "video", 0, "", 120, 0, 1);
+    const l_free = try course_repo.lessonCreate(&dbh, fc, ch, "试看课时", "markdown", 0, "[]", "内容", 60, 1, 1);
+    const l_paid = try course_repo.lessonCreate(&dbh, fc, ch, "普通课时", "video", 0, "[3]", "", 300, 0, 2);
+    const l_pc = try course_repo.lessonCreate(&dbh, pc, 0, "付费课课时", "video", 0, "[]", "", 120, 0, 1);
 
     // 免费课报名：即生效、计数 +1、解锁判定
     const o1 = try enroll(&dbh, a, 7, (try course_repo.getById(&dbh, a, fc)).?, now);

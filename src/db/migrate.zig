@@ -299,12 +299,20 @@ const v5 = [_][]const u8{
     "CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status)",
 };
 
+/// v6：课时多资源关联。resource_ids 存 JSON 数组文本（如 "[12,34]"）；resource_id
+/// 保留为主资源（= 列表首个），兼容学习端单资源播放/下载逻辑。
+const v6 = [_][]const u8{
+    "ALTER TABLE lessons ADD COLUMN resource_ids TEXT NOT NULL DEFAULT '[]'",
+    "UPDATE lessons SET resource_ids = '[' || resource_id || ']' WHERE resource_id != 0",
+};
+
 pub const migrations = [_]Migration{
     .{ .sql = &v1 },
     .{ .sql = &v2 },
     .{ .sql = &v3 },
     .{ .sql = &v4 },
     .{ .sql = &v5 },
+    .{ .sql = &v6 },
 };
 
 /// 执行所有未应用的迁移，并写入种子数据

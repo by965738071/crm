@@ -51,15 +51,15 @@ pub fn questionCount(rules: []const Rule) i64 {
 }
 
 pub const ExamValidationError = error{
-    BadTitle,       // 空或超长
-    BadDuration,    // 不在 1-300 分钟
-    BadTotal,       // 不在 1-10000 分
-    BadPass,        // pass_score 不在 0..total_score
-    BadStatus,      // 非 draft/published
-    BadRules,       // 规则条数为 0 或超上限
-    BadRuleField,   // 单条规则字段非法
-    BadRuleTotal,   // Σcount 不在 1..100
-    BadScoreSum,    // Σ(count*score_each) != total_score
+    BadTitle, // 空或超长
+    BadDuration, // 不在 1-300 分钟
+    BadTotal, // 不在 1-10000 分
+    BadPass, // pass_score 不在 0..total_score
+    BadStatus, // 非 draft/published
+    BadRules, // 规则条数为 0 或超上限
+    BadRuleField, // 单条规则字段非法
+    BadRuleTotal, // Σcount 不在 1..100
+    BadScoreSum, // Σ(count*score_each) != total_score
 };
 
 /// 注：catch 的 error 集无法穷举 ValidationError 并集，按项目惯例收 anyerror + else 兜底。
@@ -262,26 +262,26 @@ const cte_subtree =
 
 const exam_where =
     "deleted = 0 AND (?1 = 0 OR category_id = ?1) AND " ++
-        "(?2 = '' OR status = ?2) AND (?3 = '' OR (?3 = 'published' AND status = 'published')) AND " ++
-        "(?4 = '' OR title LIKE ?5 ESCAPE '\\')";
+    "(?2 = '' OR status = ?2) AND (?3 = '' OR (?3 = 'published' AND status = 'published')) AND " ++
+    "(?4 = '' OR title LIKE ?5 ESCAPE '\\')";
 
 const exam_where_subtree =
     "deleted = 0 AND (?1 = 0 OR category_id IN (SELECT id FROM sub)) AND " ++
-        "(?2 = '' OR status = ?2) AND (?3 = '' OR (?3 = 'published' AND status = 'published')) AND " ++
-        "(?4 = '' OR title LIKE ?5 ESCAPE '\\')";
+    "(?2 = '' OR status = ?2) AND (?3 = '' OR (?3 = 'published' AND status = 'published')) AND " ++
+    "(?4 = '' OR title LIKE ?5 ESCAPE '\\')";
 
 const exam_count_exact = "SELECT COUNT(*) FROM exams WHERE " ++ exam_where;
 const exam_count_subtree = cte_subtree ++ "SELECT COUNT(*) FROM exams WHERE " ++ exam_where_subtree;
 const exam_rows_exact =
     "SELECT " ++ exam_cols ++ ", " ++
-        "(SELECT COUNT(*) FROM exam_attempts ea WHERE ea.exam_id = exams.id AND ea.user_id = ?6), " ++
-        "(SELECT COALESCE(MAX(score), -1) FROM exam_attempts eb WHERE eb.exam_id = exams.id AND eb.user_id = ?6 AND eb.submitted_at > 0) " ++
-        "FROM exams WHERE " ++ exam_where ++ " ORDER BY id DESC LIMIT ?7 OFFSET ?8";
+    "(SELECT COUNT(*) FROM exam_attempts ea WHERE ea.exam_id = exams.id AND ea.user_id = ?6), " ++
+    "(SELECT COALESCE(MAX(score), -1) FROM exam_attempts eb WHERE eb.exam_id = exams.id AND eb.user_id = ?6 AND eb.submitted_at > 0) " ++
+    "FROM exams WHERE " ++ exam_where ++ " ORDER BY id DESC LIMIT ?7 OFFSET ?8";
 const exam_rows_subtree =
     cte_subtree ++ "SELECT " ++ exam_cols ++ ", " ++
-        "(SELECT COUNT(*) FROM exam_attempts ea WHERE ea.exam_id = exams.id AND ea.user_id = ?6), " ++
-        "(SELECT COALESCE(MAX(score), -1) FROM exam_attempts eb WHERE eb.exam_id = exams.id AND eb.user_id = ?6 AND eb.submitted_at > 0) " ++
-        "FROM exams WHERE " ++ exam_where_subtree ++ " ORDER BY id DESC LIMIT ?7 OFFSET ?8";
+    "(SELECT COUNT(*) FROM exam_attempts ea WHERE ea.exam_id = exams.id AND ea.user_id = ?6), " ++
+    "(SELECT COALESCE(MAX(score), -1) FROM exam_attempts eb WHERE eb.exam_id = exams.id AND eb.user_id = ?6 AND eb.submitted_at > 0) " ++
+    "FROM exams WHERE " ++ exam_where_subtree ++ " ORDER BY id DESC LIMIT ?7 OFFSET ?8";
 
 /// 分类维度试卷计数（不含软删）。category_id=0 表示未分类。
 pub const CategoryCount = struct {

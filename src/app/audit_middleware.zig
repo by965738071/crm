@@ -33,7 +33,7 @@ pub const AuditLogMiddleware = struct {
         const method_str = @tagName(ctx.request.method);
         const path = ctx.request.path;
         const summary = if (result) |_|
-            try std.fmt.allocPrint(self.allocator, "{s} {s} -> {d}", .{ method_str, path, @intFromEnum(res.status) })
+            try std.fmt.allocPrint(self.allocator, "{s} {s} -> {d}", .{ method_str, path, @backingInt(res.status) })
         else |err|
             try std.fmt.allocPrint(self.allocator, "{s} {s} -> ERROR {s}", .{ method_str, path, @errorName(err) });
         defer self.allocator.free(summary);
@@ -41,7 +41,7 @@ pub const AuditLogMiddleware = struct {
         // 请求参数（URL query 原始串，不含 '?'；写请求体不入库以防敏感信息泄漏）
         const query = ctx.request.query;
         // 响应状态码：正常路径取 res.status，出错时尚未设置，记 0
-        const status: i64 = if (result) |_| @intFromEnum(res.status) else |_| 0;
+        const status: i64 = if (result) |_| @backingInt(res.status) else |_| 0;
 
         // 提取对端 IP（框架 Context.peer_ip 在 accept 时由内核注入）
         var ip_buf: [64]u8 = undefined;

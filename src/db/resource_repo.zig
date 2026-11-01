@@ -1,4 +1,3 @@
-
 const std = @import("std");
 const zqlite = @import("zqlite");
 const db = @import("db.zig");

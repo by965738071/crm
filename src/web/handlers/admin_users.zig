@@ -62,7 +62,7 @@ pub fn list(ctx: *framework.Context, res: *framework.Response) !void {
     size = @max(1, @min(100, size));
     page = @max(1, page);
 
-    const keyword = ctx.queryDecoded("keyword") catch null orelse "";
+    const keyword = (ctx.queryDecoded("keyword") catch null) orelse "";
     const role = ctx.query("role") orelse "";
     if (role.len > 0 and !validRole(role)) {
         return ctx.failWith(framework.AppError.badRequest("role 仅支持 student/admin/superadmin"));

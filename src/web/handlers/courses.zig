@@ -55,6 +55,8 @@ pub const LessonView = struct {
     title: []const u8,
     content_type: []const u8,
     resource_id: i64,
+    /// 关联资源 ID 列表（resource_id 在首位为主资源）
+    resource_ids: []i64 = &.{},
     content: []const u8,
     duration: i64,
     is_free: i64,
@@ -62,7 +64,16 @@ pub const LessonView = struct {
     locked: bool = false,
 };
 
-fn lessonView(le: course_repo.Lesson, unlocked: bool) LessonView {
+/// 解析 lessons.resource_ids（JSON 数组文本）；无效/为空时返回空列表
+fn decodeResourceIds(a: std.mem.Allocator, json_str: []const u8) []i64 {
+    if (json_str.len == 0) return &.{};
+    // std.json 静态解析借用输入内存；Row 临时文本会在 deinit 后悬垂 → 先 dupe
+    const owned = a.dupe(u8, json_str) catch return &.{};
+    const parsed = std.json.parseFromSlice([]i64, a, owned, .{}) catch return &.{};
+    return parsed.value;
+}
+
+fn lessonView(a: std.mem.Allocator, le: course_repo.Lesson, unlocked: bool) LessonView {
     const show = unlocked or le.is_free == 1;
     return .{
         .id = le.id,
@@ -71,6 +82,7 @@ fn lessonView(le: course_repo.Lesson, unlocked: bool) LessonView {
         .title = le.title,
         .content_type = le.content_type,
         .resource_id = le.resource_id,
+        .resource_ids = decodeResourceIds(a, le.resource_ids),
         .content = if (show) le.content else "",
         .duration = le.duration,
         .is_free = le.is_free,
@@ -99,7 +111,7 @@ pub fn list(ctx: *framework.Context, res: *framework.Response) !void {
     const page = common.parseQueryInt(ctx, "page", 1, 100, 1);
     const size = common.parseQueryInt(ctx, "size", 20, 100, 1);
     const category_id = common.parseQueryInt(ctx, "category_id", 0, 1 << 40, 0);
-    const keyword = ctx.queryDecoded("keyword") catch null orelse "";
+    const keyword = (ctx.queryDecoded("keyword") catch null) orelse "";
     const include_subtree = common.parseQueryInt(ctx, "sub", 0, 1, 0) == 1;
 
     const r = try course_repo.list(st.db, ctx.arena, .{
@@ -137,7 +149,7 @@ pub fn detail(ctx: *framework.Context, res: *framework.Response) !void {
         const lessons = try course_repo.lessonsByChapter(st.db, ctx.arena, ch.id);
         var lvs: std.ArrayList(LessonView) = .empty;
         for (lessons) |le| {
-            try lvs.append(ctx.arena, lessonView(le, unlocked));
+            try lvs.append(ctx.arena, lessonView(ctx.arena, le, unlocked));
         }
         cv.lessons = try lvs.toOwnedSlice(ctx.arena);
         try chapters.append(ctx.arena, cv);
@@ -232,7 +244,7 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
     const page = common.parseQueryInt(ctx, "page", 1, 100, 1);
     const size = common.parseQueryInt(ctx, "size", 20, 100, 1);
     const category_id = common.parseQueryInt(ctx, "category_id", 0, 1 << 40, 0);
-    const keyword = ctx.queryDecoded("keyword") catch null orelse "";
+    const keyword = (ctx.queryDecoded("keyword") catch null) orelse "";
     const status = ctx.query("status") orelse "";
     const include_subtree = common.parseQueryInt(ctx, "sub", 0, 1, 0) == 1;
 
@@ -276,7 +288,7 @@ pub fn adminGet(ctx: *framework.Context, res: *framework.Response) !void {
         var lvs: std.ArrayList(LessonView) = .empty;
         for (lessons) |le| {
             // 管理端永远不锁定，直接给全量
-            try lvs.append(ctx.arena, lessonView(le, true));
+            try lvs.append(ctx.arena, lessonView(ctx.arena, le, true));
         }
         cv.lessons = try lvs.toOwnedSlice(ctx.arena);
         try chapters.append(ctx.arena, cv);
@@ -392,11 +404,16 @@ const LessonBody = struct {
     title: []const u8 = "",
     content_type: []const u8 = "markdown",
     resource_id: i64 = 0,
+    /// 关联资源 ID 列表（多资源）；首位将写入主资源 resource_id
+    resource_ids: []i64 = &.{},
     content: []const u8 = "",
     duration: i64 = 0,
     is_free: i64 = 0,
     sort: i64 = 0,
 };
+
+/// resource_ids 上限，防滥用
+const max_lesson_resources = 20;
 
 fn validateLesson(ctx: *framework.Context, st: *state.State, body: *const LessonBody) !bool {
     if (!try courseMustExist(ctx, st, body.course_id)) return false;
@@ -424,6 +441,16 @@ fn validateLesson(ctx: *framework.Context, st: *state.State, body: *const Lesson
         try ctx.failWith(framework.AppError.badRequest("关联的资料不存在"));
         return false;
     }
+    if (body.resource_ids.len > max_lesson_resources) {
+        try ctx.failWith(framework.AppError.badRequest("关联资源数量超出上限（20）"));
+        return false;
+    }
+    for (body.resource_ids) |rid| {
+        if (rid == 0 or (try resource_repo.getById(st.db, ctx.arena, rid)) == null) {
+            try ctx.failWith(framework.AppError.badRequest("关联的资料不存在"));
+            return false;
+        }
+    }
     if (body.duration < 0 or body.duration > 3600 * 24) {
         try ctx.failWith(framework.AppError.badRequest("课时时长（秒）超出范围"));
         return false;
@@ -435,15 +462,25 @@ fn validateLesson(ctx: *framework.Context, st: *state.State, body: *const Lesson
     return true;
 }
 
+/// 生成 lessons.resource_ids 的 JSON 数组文本（如 "[12,34]"）
+fn encodeResourceIds(a: std.mem.Allocator, ids: []const i64) ![]const u8 {
+    var buf = std.Io.Writer.Allocating.init(a);
+    var s: std.json.Stringify = .{ .writer = &buf.writer, .options = .{} };
+    try s.write(ids);
+    return buf.written();
+}
+
 pub fn lessonCreate(ctx: *framework.Context, res: *framework.Response) !void {
     const st = ctx.service(state.State) orelse return ctx.failWith(framework.AppError.internal("app not ready"));
     const body = common.readJson(LessonBody, ctx) catch
         return ctx.failWith(framework.AppError.badRequest("请求体 JSON 无效"));
     if (!try validateLesson(ctx, st, &body)) return;
 
-    const id = try course_repo.lessonCreate(st.db, body.course_id, body.chapter_id, body.title, body.content_type, body.resource_id, body.content, body.duration, body.is_free, body.sort);
+    const primary_id = if (body.resource_ids.len > 0) body.resource_ids[0] else body.resource_id;
+    const ids_json = try encodeResourceIds(ctx.arena, body.resource_ids);
+    const id = try course_repo.lessonCreate(st.db, body.course_id, body.chapter_id, body.title, body.content_type, primary_id, ids_json, body.content, body.duration, body.is_free, body.sort);
     const le = (try course_repo.lessonGetById(st.db, ctx.arena, id)).?;
-    try respond.ok(res, lessonView(le, true));
+    try respond.ok(res, lessonView(ctx.arena, le, true));
 }
 
 pub fn lessonUpdate(ctx: *framework.Context, res: *framework.Response) !void {
@@ -457,12 +494,14 @@ pub fn lessonUpdate(ctx: *framework.Context, res: *framework.Response) !void {
         return ctx.failWith(framework.AppError.badRequest("请求体 JSON 无效"));
     if (!try validateLesson(ctx, st, &body)) return;
 
-    course_repo.lessonUpdate(st.db, id, body.course_id, body.chapter_id, body.title, body.content_type, body.resource_id, body.content, body.duration, body.is_free, body.sort) catch |err| switch (err) {
+    const primary_id = if (body.resource_ids.len > 0) body.resource_ids[0] else body.resource_id;
+    const ids_json = try encodeResourceIds(ctx.arena, body.resource_ids);
+    course_repo.lessonUpdate(st.db, id, body.course_id, body.chapter_id, body.title, body.content_type, primary_id, ids_json, body.content, body.duration, body.is_free, body.sort) catch |err| switch (err) {
         error.NotFound => return ctx.failWith(framework.AppError.notFound("课时不存在")),
         else => return err,
     };
     const le = (try course_repo.lessonGetById(st.db, ctx.arena, id)).?;
-    try respond.ok(res, lessonView(le, true));
+    try respond.ok(res, lessonView(ctx.arena, le, true));
 }
 
 pub fn lessonDelete(ctx: *framework.Context, res: *framework.Response) !void {

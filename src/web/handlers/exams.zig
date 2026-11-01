@@ -486,7 +486,7 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
     const page = common.parseQueryInt(ctx, "page", 1, 100_000, 1);
     const size = common.parseQueryInt(ctx, "size", 20, 100, 1);
     const category_id = common.parseQueryInt(ctx, "category_id", 0, 1 << 40, 0);
-    const keyword = ctx.queryDecoded("keyword") catch null orelse "";
+    const keyword = (ctx.queryDecoded("keyword") catch null) orelse "";
     const raw_status = ctx.query("status") orelse "";
     const status = if (exam_repo.validStatus(raw_status)) raw_status else "";
     const include_subtree = common.parseQueryInt(ctx, "sub", 0, 1, 0) == 1;

@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { adminApi } from '../../api'
+import { adminApi, categoryApi } from '../../api'
 import { duration } from '../../utils'
 
 const props = defineProps({ id: { type: String, required: true } })
@@ -78,6 +78,119 @@ async function removeChapter(ch) {
   } catch {}
 }
 
+// ---- 关联资源选择弹窗（左侧分类树 + 右侧资源表格多选） ----
+const resourceNames = ref({}) // id -> 资源名，用于列表/标签展示
+
+const rsVisible = ref(false)
+const rsLoading = ref(false)
+const rsItems = ref([])
+const rsTotal = ref(0)
+const rsPage = ref(1)
+const rsSize = 10
+const rsQuery = reactive({ category_id: null, type: '', keyword: '' })
+const rsPicked = ref([]) // [{ id, name }]，弹窗内暂存（跨页保留）
+const catTree = ref([])
+const rsExpanded = [0]
+
+async function loadCatTree() {
+  if (catTree.value.length) return
+  try {
+    catTree.value = (await categoryApi.tree()) || []
+  } catch {}
+}
+
+const rsTree = computed(() => [{ id: 0, name: '全部资源', children: catTree.value }])
+
+function rememberNames(items) {
+  for (const r of items) resourceNames.value[r.id] = r.orig_name || r.name
+}
+
+// 页面加载时预取一页资源名，供既有课时的资源标签展示
+async function loadResources() {
+  try {
+    const r = await adminApi.resources({ size: 100 })
+    rememberNames(r.items || [])
+  } catch {}
+}
+
+async function loadRsList() {
+  rsLoading.value = true
+  try {
+    const r = await adminApi.resources({
+      page: rsPage.value,
+      size: rsSize,
+      category_id: rsQuery.category_id || 0,
+      sub: rsQuery.category_id ? 1 : 0,
+      type: rsQuery.type,
+      keyword: rsQuery.keyword,
+    })
+    const items = r.items || []
+    rsItems.value = items
+    rsTotal.value = r.total
+    rememberNames(items)
+  } catch {} finally {
+    rsLoading.value = false
+  }
+}
+
+function onRsCat(data) {
+  rsQuery.category_id = data.id === 0 ? null : data.id
+  rsPage.value = 1
+  loadRsList()
+}
+
+function onRsFilter() {
+  rsPage.value = 1
+  loadRsList()
+}
+
+function onRsPage(p) {
+  rsPage.value = p
+  loadRsList()
+}
+
+function isRsPicked(id) {
+  return rsPicked.value.some((p) => p.id === id)
+}
+
+function toggleRsPick(row) {
+  const i = rsPicked.value.findIndex((p) => p.id === row.id)
+  if (i >= 0) rsPicked.value.splice(i, 1)
+  else rsPicked.value.push({ id: row.id, name: row.orig_name || row.name })
+}
+
+function resName(id) {
+  return resourceNames.value[id] || `资源 #${id}`
+}
+
+const leResources = ref([]) // 课时已关联 [{ id, name }]
+
+function resNamesOf(row) {
+  const ids = row.resource_ids || (row.resource_id ? [row.resource_id] : [])
+  return ids.map(resName)
+}
+
+function openResourcePicker() {
+  rsPicked.value = leResources.value.map((r) => ({ ...r }))
+  rsQuery.category_id = null
+  rsQuery.type = ''
+  rsQuery.keyword = ''
+  rsPage.value = 1
+  rsVisible.value = true
+  loadCatTree()
+  loadRsList()
+}
+
+function confirmRsPick() {
+  leResources.value = rsPicked.value.map((r) => ({ ...r }))
+  rsVisible.value = false
+}
+
+function removeRes(r) {
+  const i = leResources.value.findIndex((p) => p.id === r.id)
+  if (i >= 0) leResources.value.splice(i, 1)
+}
+
 // ---- 课时弹窗 ----
 const leVisible = ref(false)
 const leSaving = ref(false)
@@ -86,7 +199,6 @@ const leForm = reactive({
   chapter_id: 0,
   title: '',
   content_type: 'markdown',
-  resource_id: 0,
   content: '',
   duration: 0,
   is_free: 0,
@@ -102,12 +214,13 @@ function openLesson(ch, le) {
     chapter_id: ch.id,
     title: le ? le.title : '',
     content_type: le ? le.content_type : 'markdown',
-    resource_id: le ? le.resource_id : 0,
     content: le ? le.content : '',
     duration: le ? le.duration : 0,
     is_free: le ? le.is_free : 0,
     sort: le ? le.sort : 0,
   })
+  if (le) Object.assign(resourceNames.value, Object.fromEntries((le.resource_ids || []).map((id) => [id, resName(id)])))
+  leResources.value = (le ? le.resource_ids || [] : []).map((id) => ({ id, name: resName(id) }))
   leVisible.value = true
 }
 
@@ -124,7 +237,7 @@ async function submitLesson() {
       chapter_id: leForm.chapter_id,
       title,
       content_type: leForm.content_type,
-      resource_id: leForm.resource_id || 0,
+      resource_ids: leResources.value.map((r) => r.id),
       content: leForm.content,
       duration: leForm.duration || 0,
       is_free: leForm.is_free ? 1 : 0,
@@ -154,7 +267,10 @@ async function removeLesson(le) {
   } catch {}
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadResources()
+})
 </script>
 <template>
   <div v-loading="loading">
@@ -197,8 +313,8 @@ onMounted(load)
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="关联资源" width="90">
-          <template #default="{ row }">{{ row.resource_id || '-' }}</template>
+        <el-table-column label="关联资源" min-width="140" show-overflow-tooltip>
+          <template #default="{ row }">{{ resNamesOf(row).join('、') || '-' }}</template>
         </el-table-column>
         <el-table-column label="时长" width="80">
           <template #default="{ row }">{{ row.duration ? duration(row.duration) : '-' }}</template>
@@ -245,9 +361,16 @@ onMounted(load)
             <el-option v-for="(v, k) in contentTypeMap" :key="k" :label="v.label" :value="k" />
           </el-select>
         </el-form-item>
-        <el-form-item label="关联资源 ID">
-          <el-input-number v-model="leForm.resource_id" :min="0" controls-position="right" />
-          <span class="hint">0 = 不关联；视频/音频/PDF 课时需在资料库上传后填入</span>
+        <el-form-item label="关联资源">
+          <div class="res-picker">
+            <el-button @click="openResourcePicker">选择资源</el-button>
+            <div v-if="leResources.length" class="res-tags">
+              <el-tag v-for="r in leResources" :key="r.id" size="small" closable @close="removeRes(r)">
+                {{ r.name }}
+              </el-tag>
+            </div>
+            <span v-else class="hint">视频/音频/PDF 课时需在资料库先上传资源，可多选</span>
+          </div>
         </el-form-item>
         <el-form-item label="时长（秒）">
           <el-input-number v-model="leForm.duration" :min="0" :step="60" controls-position="right" />
@@ -268,6 +391,48 @@ onMounted(load)
         <el-button type="primary" :loading="leSaving" @click="submitLesson">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="rsVisible" title="关联资源" width="760">
+      <div class="rs-layout">
+        <el-tree class="rs-cats" :data="rsTree" node-key="id"
+          :props="{ label: 'name', children: 'children' }"
+          highlight-current :expand-on-click-node="false" :default-expanded-keys="rsExpanded"
+          @node-click="onRsCat" />
+        <div class="rs-main">
+          <div class="rs-toolbar">
+            <el-select v-model="rsQuery.type" class="rs-type" placeholder="类型" @change="onRsFilter" clearable>
+              <el-option label="全部类型" value="" />
+              <el-option label="视频" value="video" />
+              <el-option label="音频" value="audio" />
+              <el-option label="PDF" value="pdf" />
+            </el-select>
+            <el-input v-model="rsQuery.keyword" class="rs-kw" placeholder="搜索资料名称"
+              clearable @keyup.enter="onRsFilter" />
+            <el-button @click="onRsFilter">搜索</el-button>
+          </div>
+          <el-table v-loading="rsLoading" :data="rsItems" size="small" stripe max-height="320">
+            <el-table-column label="" width="52" align="center">
+              <template #default="{ row }">
+                <el-checkbox :model-value="isRsPicked(row.id)" @change="toggleRsPick(row)" />
+              </template>
+            </el-table-column>
+            <el-table-column prop="id" label="ID" width="60" />
+            <el-table-column label="资料名" min-width="200" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.orig_name || row.name }}</template>
+            </el-table-column>
+            <el-table-column prop="type" label="类型" width="80" />
+          </el-table>
+          <el-pagination class="rs-pager" layout="total, prev, pager, next"
+            :total="rsTotal" :page-size="rsSize" :current-page="rsPage"
+            @current-change="onRsPage" />
+        </div>
+      </div>
+      <template #footer>
+        <span class="rs-picked-total">已选 {{ rsPicked.length }} 个资源</span>
+        <el-button @click="rsVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmRsPick">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -281,5 +446,15 @@ onMounted(load)
 .ch-ops { margin-left: auto; }
 .no-lesson { padding: 8px 2px; font-size: 13px; color: var(--el-text-color-secondary); }
 .w180 { width: 180px; }
+.res-picker { display: flex; flex-direction: column; gap: 8px; }
+.res-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.rs-layout { display: flex; gap: 12px; height: 420px; }
+.rs-cats { width: 200px; border-right: 1px solid var(--el-border-color-lighter); padding-right: 8px; }
+.rs-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rs-toolbar { display: flex; gap: 8px; margin-bottom: 10px; }
+.rs-type { width: 110px; }
+.rs-kw { flex: 1; }
+.rs-pager { margin-top: 10px; justify-content: flex-end; }
+.rs-picked-total { margin-right: auto; font-size: 13px; color: var(--el-text-color-secondary); }
 .hint { margin-left: 10px; font-size: 12px; color: var(--el-text-color-secondary); }
 </style>

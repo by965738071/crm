@@ -148,7 +148,7 @@ pub fn adminList(ctx: *framework.Context, res: *framework.Response) !void {
         .type = ty,
         .difficulty = common.parseQueryInt(ctx, "difficulty", 0, 5, 0),
         // keyword 可能含中文：必须走百分号解码，否则拿到的 %E4%B8%8B… 永远匹配不到题干
-        .keyword = ctx.queryDecoded("keyword") catch null orelse "",
+        .keyword = (ctx.queryDecoded("keyword") catch null) orelse "",
         .include_subtree = include_subtree,
     });
     try respond.ok(res, .{ .items = r.items.items, .total = r.total, .page = page, .size = size });

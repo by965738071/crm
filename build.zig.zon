@@ -25,24 +25,20 @@
     .fingerprint = 0x9bdaaafa82aca166, // Changing this has security and trust implications.
     // Tracks the earliest Zig version that the package considers to be a
     // supported use case.
-    .minimum_zig_version = "0.17.0-dev.2125+0d600e488",
+    .minimum_zig_version = "0.17.0",
     // This field is optional.
     // Each dependency must either provide a `url` and `hash`, or a `path`.
     // `zig build --fetch` can be used to fetch all dependencies of a package, recursively.
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
-    .dependencies = .{
-        .http_framework = .{
-            //.path = "../wlw/http-framework"
-            .url = "git+https://github.com/by965738071/http-framework#main",
-            .hash = "http_framework-1.0.0-1YqJfi7WDwDxdk6JwK98a_QCXLlI3Iz1fO5U7893SHdJ",
-        },
-
-        .zqlite = .{
-            .url = "git+https://github.com/karlseguin/zqlite.zig#dev",
-            .hash = "zqlite-0.0.1-RWLaY4Y8nADz2l5aBE-JVyDyM3sZzHjq0agNykuVZKqQ",
-        },
+    .dependencies = .{ .http_framework = .{
+        .url = "git+https://github.com/by965738071/http-framework#main",
+        .hash = "http_framework-1.0.0-1YqJfkmAEQBSsuULCd63DI7465TiwTKdTKEiR4o5cuPN",
     },
+    .zqlite = .{
+        .url = "git+https://github.com/karlseguin/zqlite.zig#master",
+        .hash = "zqlite-0.0.1-RWLaY4Y8nADz2l5aBE-JVyDyM3sZzHjq0agNykuVZKqQ",
+    } },
     // Specifies the set of files and directories that are included in this package.
     // Only files and directories listed here are included in the `hash` that
     // is computed for this package. Only files listed here will remain on disk

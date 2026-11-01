@@ -36,6 +36,8 @@ pub const Lesson = struct {
     title: []const u8,
     content_type: []const u8, // video/audio/pdf/markdown/rich
     resource_id: i64,
+    /// JSON 数组文本（如 "[12,34]"，主资源 resource_id 在首位）；与列顺序一致则须紧跟 resource_id 之后
+    resource_ids: []const u8,
     content: []const u8,
     duration: i64,
     is_free: i64,
@@ -94,10 +96,11 @@ fn rowToLesson(row: zqlite.Row, a: std.mem.Allocator) !Lesson {
         .title = try a.dupe(u8, row.text(3)),
         .content_type = try a.dupe(u8, row.text(4)),
         .resource_id = row.int(5),
-        .content = try a.dupe(u8, row.text(6)),
-        .duration = row.int(7),
-        .is_free = row.int(8),
-        .sort = row.int(9),
+        .resource_ids = try a.dupe(u8, row.text(6)),
+        .content = try a.dupe(u8, row.text(7)),
+        .duration = row.int(8),
+        .is_free = row.int(9),
+        .sort = row.int(10),
     };
 }
 
@@ -375,14 +378,16 @@ pub fn lessonCreate(
     title: []const u8,
     content_type: []const u8,
     resource_id: i64,
+    /// JSON 数组文本（如 "[12,34]"）
+    resource_ids: []const u8,
     content: []const u8,
     duration: i64,
     is_free: i64,
     sort: i64,
 ) !i64 {
     try dbh.conn.exec(
-        "INSERT INTO lessons (course_id, chapter_id, title, content_type, resource_id, content, duration, is_free, sort) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-        .{ course_id, chapter_id, title, content_type, resource_id, content, duration, is_free, sort },
+        "INSERT INTO lessons (course_id, chapter_id, title, content_type, resource_id, resource_ids, content, duration, is_free, sort) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+        .{ course_id, chapter_id, title, content_type, resource_id, resource_ids, content, duration, is_free, sort },
     );
     return dbh.lastInsertId();
 }
@@ -395,14 +400,16 @@ pub fn lessonUpdate(
     title: []const u8,
     content_type: []const u8,
     resource_id: i64,
+    /// JSON 数组文本（如 "[12,34]"）
+    resource_ids: []const u8,
     content: []const u8,
     duration: i64,
     is_free: i64,
     sort: i64,
 ) !void {
     try dbh.conn.exec(
-        "UPDATE lessons SET course_id=?1, chapter_id=?2, title=?3, content_type=?4, resource_id=?5, content=?6, duration=?7, is_free=?8, sort=?9 WHERE id=?10 AND deleted=0",
-        .{ course_id, chapter_id, title, content_type, resource_id, content, duration, is_free, sort, id },
+        "UPDATE lessons SET course_id=?1, chapter_id=?2, title=?3, content_type=?4, resource_id=?5, resource_ids=?6, content=?7, duration=?8, is_free=?9, sort=?10 WHERE id=?11 AND deleted=0",
+        .{ course_id, chapter_id, title, content_type, resource_id, resource_ids, content, duration, is_free, sort, id },
     );
     if (dbh.conn.changes() == 0) return error.NotFound;
 }
@@ -513,11 +520,11 @@ test "course_repo courses/chapters/lessons lifecycle" {
     try std.testing.expectEqual(@as(i64, 9), chs[0].sort);
 
     // 课时
-    const l1 = try lessonCreate(&dbh, c1, ch1, "五脏六腑", "markdown", 0, "# 内容", 120, 0, 1);
+    const l1 = try lessonCreate(&dbh, c1, ch1, "五脏六腑", "markdown", 0, "[1,2]", "# 内容", 120, 0, 1);
     try std.testing.expect(l1 > 0);
-    const l2 = try lessonCreate(&dbh, c1, ch1, "免费课时", "markdown", 0, "# 免费", 60, 1, 2);
+    const l2 = try lessonCreate(&dbh, c1, ch1, "免费课时", "markdown", 0, "[]", "# 免费", 60, 1, 2);
     try std.testing.expect(l2 > 0);
-    try lessonUpdate(&dbh, l1, c1, ch1, "五脏六腑（改）", "video", 5, "", 300, 0, 3);
+    try lessonUpdate(&dbh, l1, c1, ch1, "五脏六腑（改）", "video", 5, "[1,2,5]", "", 300, 0, 3);
 
     const les = try lessonsByChapter(&dbh, a, ch1);
     try std.testing.expectEqual(@as(usize, 2), les.len);
@@ -531,7 +538,7 @@ test "course_repo courses/chapters/lessons lifecycle" {
     try std.testing.expectError(error.NotFound, update(&dbh, 9999, 1, "x", "", "", "", 0, 0, "draft", 0, 1));
     try std.testing.expectError(error.NotFound, deleteSoft(&dbh, 9999));
     try std.testing.expectError(error.NotFound, chapterUpdate(&dbh, 9999, "x", 0));
-    try std.testing.expectError(error.NotFound, lessonUpdate(&dbh, 9999, 0, 0, "x", "video", 0, "", 0, 0, 0));
+    try std.testing.expectError(error.NotFound, lessonUpdate(&dbh, 9999, 0, 0, "x", "video", 0, "[]", "", 0, 0, 0));
 
     // isEnrolled：未报名 false
     try std.testing.expect(!try isEnrolled(&dbh, 1, c1));
@@ -579,6 +586,7 @@ const lessons_ddl =
     \\  title TEXT NOT NULL,
     \\  content_type TEXT NOT NULL DEFAULT 'video',
     \\  resource_id INTEGER NOT NULL DEFAULT 0,
+    \\  resource_ids TEXT NOT NULL DEFAULT '[]',
     \\  content TEXT NOT NULL DEFAULT '',
     \\  duration INTEGER NOT NULL DEFAULT 0,
     \\  is_free INTEGER NOT NULL DEFAULT 0,

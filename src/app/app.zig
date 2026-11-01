@@ -42,7 +42,7 @@ pub fn appMain(io: std.Io, allocator: std.mem.Allocator) !void {
     try migrate.run(database, io, allocator);
 
     const st = try allocator.create(state.State);
-    // （不用单独的 errdefer destroy(st)：字面量装配无失败点，统一由下方块 errdefer 接管）
+    // （不用单独的 errdefer destroy(st)：字面量装配失败点由下方块 errdefer 接管）
     st.* = .{
         .allocator = allocator,
         .config = cfg,
@@ -60,7 +60,7 @@ pub fn appMain(io: std.Io, allocator: std.mem.Allocator) !void {
         .image_files = framework.StaticFileServer.init(allocator, io, data_dir ++ "/uploads/images", "/uploads/images"),
         .security = .{ .config = .{} },
         .cors = .{ .config = .{} },
-        .rate = framework.RateLimiter.init(allocator, io, .{
+        .rate = try framework.RateLimiter.init(allocator, io, .{
             .window_seconds = 60,
             .max_requests = 600,
             .per_ip = false,
@@ -123,7 +123,7 @@ pub fn appMain(io: std.Io, allocator: std.mem.Allocator) !void {
 
     try router.register(st, &rt);
 
-    var server = try framework.StdServer.init(allocator, io, cfg, &rt);
+    var server = try framework.ZioServer.init(allocator, io, cfg, &rt);
     errdefer server.deinit();
     server.setServices(&services); // services 是 appMain 栈上变量，run() 阻塞期间地址稳定
 
